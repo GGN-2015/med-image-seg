@@ -1,10 +1,12 @@
 # med-image-seg
 
-`med-image-seg` is a standalone, programmable multi-polygon annotation tool for medical images. It supports DICOM series, NIfTI, and `.ubd.npz` volumes. The project targets Python 3.12, uses uv for environment management, and delegates all medical-image reading to `ct_mri_dicom_nii_reader==0.1.6`.
+`med-image-seg` is a standalone, programmable multi-polygon annotation tool for medical images. It supports DICOM series, NIfTI, and `.ubd.npz` volumes.
 
 The GUI is bilingual. English is the default, and users can switch between English and Chinese at runtime without reloading the image.
 
 ## Installation and launch
+
+Python 3.12 or later is required.
 
 ```powershell
 uv sync --frozen

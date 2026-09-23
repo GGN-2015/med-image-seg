@@ -3,13 +3,13 @@ name = "med-image-seg"
 version = "0.1.0"
 description = "Interactive polygon annotation for DICOM, NIfTI, and UBD volumes"
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [
     { name = "GGN_2015", email = "neko@jlulug.org" },
 ]
 dependencies = [
-    "ct-mri-dicom-nii-reader==0.1.6",
+    "ct-mri-dicom-nii-reader",
     "numpy>=1.26,<3",
     "pyside6>=6.8,<7",
     "scipy>=1.13,<2",
