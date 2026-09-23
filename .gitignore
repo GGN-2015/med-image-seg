@@ -206,6 +206,9 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# Local visual and smoke-test artifacts
+.artifacts/
+
 # PyPI configuration file
 .pypirc
 
