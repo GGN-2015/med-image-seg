@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from .application import launch_annotation_app
+from .localization import SUPPORTED_LANGUAGES
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -33,6 +34,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.8,
         help="isotropic annotation grid in mm (default: 0.8)",
     )
+    parser.add_argument(
+        "--language",
+        choices=SUPPORTED_LANGUAGES,
+        default="en",
+        help="interface language: en or zh (default: en)",
+    )
     return parser
 
 
@@ -41,6 +48,7 @@ def main(argv: list[str] | None = None) -> int:
     return launch_annotation_app(
         [*args.image, *args.images],
         spacing_mm=args.spacing,
+        language=args.language,
     )
 
 

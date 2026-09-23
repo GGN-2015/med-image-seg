@@ -15,9 +15,11 @@ from .io import (
     load_volume,
     save_mask,
 )
+from .localization import SUPPORTED_LANGUAGES, UiLanguage
 from .sources import ImageCollection, ImageSource, SourceKind
 
 __all__ = [
+    "SUPPORTED_LANGUAGES",
     "AnnotationApplication",
     "AnnotationExporter",
     "AnnotationMainWindow",
@@ -31,6 +33,7 @@ __all__ = [
     "SliceAnnotation",
     "SliceCanvas",
     "SourceKind",
+    "UiLanguage",
     "VolumeLoadThread",
     "launch_annotation_app",
     "load_volume",

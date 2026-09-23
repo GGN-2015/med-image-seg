@@ -1,7 +1,5 @@
 """PySide6 multi-polygon medical image annotation GUI."""
 
-# ruff: noqa: RUF001
-
 from __future__ import annotations
 
 import sys
@@ -28,6 +26,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QButtonGroup,
     QCheckBox,
+    QComboBox,
     QDoubleSpinBox,
     QFileDialog,
     QGraphicsEllipseItem,
@@ -59,6 +58,7 @@ from PySide6.QtWidgets import (
 
 from .annotation import AnnotationExporter, AnnotationProject, PolygonAnnotation
 from .io import MedicalVolume, MedicalVolumeReader
+from .localization import UiLanguage, normalize_language, translate
 from .sources import ImageCollection, ImageSource
 
 
@@ -301,12 +301,13 @@ class AnnotationMainWindow(QMainWindow):
         *,
         sources: list[ImageSource] | None = None,
         spacing_mm: float = 0.8,
+        language: UiLanguage = "en",
     ) -> None:
         super().__init__()
         if sys.platform == "win32":
             QFontDatabase.addApplicationFont("C:/Windows/Fonts/msyh.ttc")
             QApplication.instance().setFont(QFont("Microsoft YaHei UI", 9))
-        self.setWindowTitle("med-image-seg 医疗影像多边形标注")
+        self.language = normalize_language(language)
         self.resize(1500, 920)
         self.sources = ImageCollection(sources or [])
         self.current_source: ImageSource | None = None
@@ -330,25 +331,34 @@ class AnnotationMainWindow(QMainWindow):
             QTimer.singleShot(0, self.load_first_source)
 
     def _build_ui(self, spacing_mm: float) -> None:
-        toolbar = QToolBar("标注")
-        toolbar.setMovable(False)
-        self.addToolBar(toolbar)
-        self.export_action = QAction("导出含插值的 3D 掩码", self)
+        self.annotation_toolbar = QToolBar()
+        self.annotation_toolbar.setMovable(False)
+        self.addToolBar(self.annotation_toolbar)
+        self.export_action = QAction(self)
         self.export_action.setEnabled(False)
         self.export_action.triggered.connect(self.export_mask)
-        toolbar.addAction(self.export_action)
+        self.annotation_toolbar.addAction(self.export_action)
 
         root_widget = QWidget()
         root_layout = QVBoxLayout(root_widget)
         import_row = QHBoxLayout()
-        import_row.addWidget(QLabel("影像集合"))
-        file_button = QPushButton("导入影像文件")
-        file_button.clicked.connect(self.choose_image_files)
-        dicom_button = QPushButton("导入 DICOM 目录")
-        dicom_button.clicked.connect(self.choose_dicom_directory)
-        import_row.addWidget(file_button)
-        import_row.addWidget(dicom_button)
+        self.image_collection_label = QLabel()
+        import_row.addWidget(self.image_collection_label)
+        self.file_button = QPushButton()
+        self.file_button.clicked.connect(self.choose_image_files)
+        self.dicom_button = QPushButton()
+        self.dicom_button.clicked.connect(self.choose_dicom_directory)
+        import_row.addWidget(self.file_button)
+        import_row.addWidget(self.dicom_button)
         import_row.addStretch(1)
+        self.language_label = QLabel()
+        self.language_combo = QComboBox()
+        self.language_combo.addItem("English", "en")
+        self.language_combo.addItem("中文", "zh")
+        self.language_combo.setCurrentIndex(self.language_combo.findData(self.language))
+        self.language_combo.currentIndexChanged.connect(self._language_changed)
+        import_row.addWidget(self.language_label)
+        import_row.addWidget(self.language_combo)
         root_layout.addLayout(import_row)
 
         self.splitter = QSplitter()
@@ -356,12 +366,14 @@ class AnnotationMainWindow(QMainWindow):
 
         left = QWidget()
         left_layout = QVBoxLayout(left)
-        left_layout.addWidget(QLabel("已导入影像（双击载入）"))
+        self.imported_images_label = QLabel()
+        left_layout.addWidget(self.imported_images_label)
         self.source_list = QListWidget()
         self.source_list.itemDoubleClicked.connect(self.load_selected_source)
         left_layout.addWidget(self.source_list, 1)
         spacing_row = QHBoxLayout()
-        spacing_row.addWidget(QLabel("标注网格"))
+        self.spacing_label = QLabel()
+        spacing_row.addWidget(self.spacing_label)
         self.spacing_spin = QDoubleSpinBox()
         self.spacing_spin.setRange(0.2, 2.0)
         self.spacing_spin.setSingleStep(0.1)
@@ -369,10 +381,10 @@ class AnnotationMainWindow(QMainWindow):
         self.spacing_spin.setValue(spacing_mm)
         self.spacing_spin.setSuffix(" mm")
         spacing_row.addWidget(self.spacing_spin)
-        load_button = QPushButton("载入选中影像")
-        load_button.clicked.connect(self.load_selected_source)
+        self.load_button = QPushButton()
+        self.load_button.clicked.connect(self.load_selected_source)
         left_layout.addLayout(spacing_row)
-        left_layout.addWidget(load_button)
+        left_layout.addWidget(self.load_button)
 
         center = QWidget()
         center_layout = QVBoxLayout(center)
@@ -381,26 +393,26 @@ class AnnotationMainWindow(QMainWindow):
         self.canvas.polygon_changed.connect(self.update_polygon)
         center_layout.addWidget(self.canvas, 1)
         slice_row = QHBoxLayout()
-        previous_button = QPushButton("上一层")
-        previous_button.clicked.connect(lambda: self.move_slice(-1))
-        next_button = QPushButton("下一层")
-        next_button.clicked.connect(lambda: self.move_slice(1))
+        self.previous_button = QPushButton()
+        self.previous_button.clicked.connect(lambda: self.move_slice(-1))
+        self.next_button = QPushButton()
+        self.next_button.clicked.connect(lambda: self.move_slice(1))
         self.slice_slider = QSlider(Qt.Orientation.Horizontal)
         self.slice_slider.valueChanged.connect(self.set_slice)
         self.slice_spin = QSpinBox()
         self.slice_spin.valueChanged.connect(self.set_slice)
-        slice_row.addWidget(previous_button)
+        slice_row.addWidget(self.previous_button)
         slice_row.addWidget(self.slice_slider, 1)
         slice_row.addWidget(self.slice_spin)
-        slice_row.addWidget(next_button)
+        slice_row.addWidget(self.next_button)
         center_layout.addLayout(slice_row)
 
         right = QWidget()
         right_layout = QVBoxLayout(right)
-        mode_group = QGroupBox("多边形模式")
-        mode_layout = QVBoxLayout(mode_group)
-        self.add_radio = QRadioButton("添加区域（绿色）")
-        self.erase_radio = QRadioButton("擦除区域（红色）")
+        self.mode_group = QGroupBox()
+        mode_layout = QVBoxLayout(self.mode_group)
+        self.add_radio = QRadioButton()
+        self.erase_radio = QRadioButton()
         self.add_radio.setChecked(True)
         modes = QButtonGroup(self)
         modes.addButton(self.add_radio)
@@ -408,63 +420,61 @@ class AnnotationMainWindow(QMainWindow):
         self.add_radio.toggled.connect(self.update_operation)
         mode_layout.addWidget(self.add_radio)
         mode_layout.addWidget(self.erase_radio)
-        right_layout.addWidget(mode_group)
+        right_layout.addWidget(self.mode_group)
 
-        finish_button = QPushButton("闭合当前多边形 [Space]")
-        finish_button.clicked.connect(self.canvas.finish_polygon)
-        cancel_button = QPushButton("取消当前多边形 [Esc]")
-        cancel_button.clicked.connect(self.canvas.cancel_polygon)
-        delete_button = QPushButton("删除本层最后编辑的多边形 [Ctrl+Z]")
-        delete_button.clicked.connect(self.delete_last_edited_polygon)
-        copy_button = QPushButton("复制上一层标注 [C]")
-        copy_button.clicked.connect(self.copy_previous_slice)
-        clear_button = QPushButton("清空本层轮廓，恢复插值")
-        clear_button.clicked.connect(self.clear_current_slice)
+        self.finish_button = QPushButton()
+        self.finish_button.clicked.connect(self.canvas.finish_polygon)
+        self.cancel_button = QPushButton()
+        self.cancel_button.clicked.connect(self.canvas.cancel_polygon)
+        self.delete_button = QPushButton()
+        self.delete_button.clicked.connect(self.delete_last_edited_polygon)
+        self.copy_button = QPushButton()
+        self.copy_button.clicked.connect(self.copy_previous_slice)
+        self.clear_button = QPushButton()
+        self.clear_button.clicked.connect(self.clear_current_slice)
         for button in (
-            finish_button,
-            cancel_button,
-            delete_button,
-            copy_button,
-            clear_button,
+            self.finish_button,
+            self.cancel_button,
+            self.delete_button,
+            self.copy_button,
+            self.clear_button,
         ):
             right_layout.addWidget(button)
 
-        self.completed_check = QCheckBox("本层已复核；空层可作边界关键层 [M]")
+        self.completed_check = QCheckBox()
         self.completed_check.toggled.connect(self.set_slice_completed)
         right_layout.addWidget(self.completed_check)
-        self.force_empty_check = QCheckBox("本切片强制不分割")
-        self.force_empty_check.setToolTip(
-            "本层输出保持为空，并阻止自动插值；不会删除已保存的轮廓。"
-        )
+        self.force_empty_check = QCheckBox()
         self.force_empty_check.toggled.connect(self.set_force_empty)
         right_layout.addWidget(self.force_empty_check)
-        next_incomplete = QPushButton("跳到下一未完成层")
-        next_incomplete.clicked.connect(self.go_to_next_incomplete)
-        right_layout.addWidget(next_incomplete)
+        self.next_incomplete_button = QPushButton()
+        self.next_incomplete_button.clicked.connect(self.go_to_next_incomplete)
+        right_layout.addWidget(self.next_incomplete_button)
         self.review_progress = QProgressBar()
-        self.review_progress.setFormat("已复核 %v / %m 层")
         right_layout.addWidget(self.review_progress)
-        self.show_interpolation = QCheckBox("显示中间层自动插值")
+        self.show_interpolation = QCheckBox()
         self.show_interpolation.setChecked(True)
         self.show_interpolation.toggled.connect(self.refresh_slice)
         right_layout.addWidget(self.show_interpolation)
-        self.interpolation_status = QLabel("当前层：尚未载入影像")
+        self.interpolation_status = QLabel()
         self.interpolation_status.setWordWrap(True)
         right_layout.addWidget(self.interpolation_status)
-        self.autosave_status = QLabel("自动保存：等待载入影像")
+        self.autosave_status = QLabel()
         self.autosave_status.setWordWrap(True)
         right_layout.addWidget(self.autosave_status)
 
-        window_group = QGroupBox("灰度窗")
-        window_layout = QVBoxLayout(window_group)
+        self.window_group = QGroupBox()
+        window_layout = QVBoxLayout(self.window_group)
         level_row = QHBoxLayout()
-        level_row.addWidget(QLabel("窗位"))
+        self.level_label = QLabel()
+        level_row.addWidget(self.level_label)
         self.level_spin = QDoubleSpinBox()
         self.level_spin.setDecimals(1)
         self.level_spin.valueChanged.connect(self.refresh_slice)
         level_row.addWidget(self.level_spin)
         width_row = QHBoxLayout()
-        width_row.addWidget(QLabel("窗宽"))
+        self.width_label = QLabel()
+        width_row.addWidget(self.width_label)
         self.width_spin = QDoubleSpinBox()
         self.width_spin.setDecimals(1)
         self.width_spin.setMinimum(1.0)
@@ -472,16 +482,11 @@ class AnnotationMainWindow(QMainWindow):
         width_row.addWidget(self.width_spin)
         window_layout.addLayout(level_row)
         window_layout.addLayout(width_row)
-        right_layout.addWidget(window_group)
+        right_layout.addWidget(self.window_group)
         right_layout.addStretch(1)
-        hint = QLabel(
-            "左键添加顶点，右键或双击闭合；拖动彩色顶点可修形。\n"
-            "橙色/紫色为机器轮廓，绿色/红色为人工轮廓。\n"
-            "每次新增、拖动、删除或复核都会立即保存到影像旁的 JSON。\n"
-            "中间蓝色区域为两个关键层之间的自动插值。"
-        )
-        hint.setWordWrap(True)
-        right_layout.addWidget(hint)
+        self.hint_label = QLabel()
+        self.hint_label.setWordWrap(True)
+        right_layout.addWidget(self.hint_label)
 
         self.splitter.addWidget(left)
         self.splitter.addWidget(center)
@@ -492,7 +497,68 @@ class AnnotationMainWindow(QMainWindow):
         center.setEnabled(False)
         right.setEnabled(False)
         self.editor_widgets = (center, right)
-        self.statusBar().showMessage("尚未导入影像。请选择影像文件或 DICOM 目录。")
+        self._retranslate_ui()
+
+    def _text(self, key: str, **values: object) -> str:
+        return translate(key, self.language, **values)
+
+    def _language_changed(self, index: int) -> None:
+        language = self.language_combo.itemData(index)
+        if language is not None:
+            self.set_language(str(language))
+
+    def set_language(self, language: str) -> None:
+        """Switch the visible interface language without restarting the GUI."""
+
+        self.language = normalize_language(language)
+        combo_index = self.language_combo.findData(self.language)
+        if combo_index >= 0 and combo_index != self.language_combo.currentIndex():
+            self.language_combo.blockSignals(True)
+            self.language_combo.setCurrentIndex(combo_index)
+            self.language_combo.blockSignals(False)
+        self._retranslate_ui()
+
+    def _retranslate_ui(self) -> None:
+        self.setWindowTitle(self._text("window_title"))
+        self.annotation_toolbar.setWindowTitle(self._text("toolbar_annotation"))
+        self.export_action.setText(self._text("export_mask"))
+        self.image_collection_label.setText(self._text("image_collection"))
+        self.file_button.setText(self._text("import_files"))
+        self.dicom_button.setText(self._text("import_dicom"))
+        self.language_label.setText(self._text("language"))
+        self.imported_images_label.setText(self._text("imported_images"))
+        self.spacing_label.setText(self._text("annotation_grid"))
+        self.load_button.setText(self._text("load_selected"))
+        self.previous_button.setText(self._text("previous_slice"))
+        self.next_button.setText(self._text("next_slice"))
+        self.mode_group.setTitle(self._text("polygon_mode"))
+        self.add_radio.setText(self._text("add_region"))
+        self.erase_radio.setText(self._text("erase_region"))
+        self.finish_button.setText(self._text("finish_polygon"))
+        self.cancel_button.setText(self._text("cancel_polygon"))
+        self.delete_button.setText(self._text("delete_last"))
+        self.copy_button.setText(self._text("copy_previous"))
+        self.clear_button.setText(self._text("clear_slice"))
+        self.completed_check.setText(self._text("completed"))
+        self.force_empty_check.setText(self._text("force_empty"))
+        self.force_empty_check.setToolTip(self._text("force_empty_tooltip"))
+        self.next_incomplete_button.setText(self._text("next_incomplete"))
+        self.review_progress.setFormat(self._text("review_progress"))
+        self.show_interpolation.setText(self._text("show_interpolation"))
+        self.window_group.setTitle(self._text("window"))
+        self.level_label.setText(self._text("window_level"))
+        self.width_label.setText(self._text("window_width"))
+        self.hint_label.setText(self._text("hint"))
+        if self.volume is not None and self.project is not None:
+            self.refresh_slice()
+            if self.project_path is not None:
+                self.autosave_status.setText(
+                    self._text("autosave_path", path=self.project_path)
+                )
+        else:
+            self.interpolation_status.setText(self._text("slice_not_loaded"))
+            self.autosave_status.setText(self._text("autosave_waiting"))
+            self.statusBar().showMessage(self._text("no_images_status"))
 
     def _bind_shortcuts(self) -> None:
         QShortcut(
@@ -540,24 +606,31 @@ class AnnotationMainWindow(QMainWindow):
         self._refresh_source_list()
         if len(self.sources) > previous_count:
             self.statusBar().showMessage(
-                f"已导入 {len(self.sources)} 个去重影像来源。双击条目即可载入。"
+                self._text("sources_added", count=len(self.sources))
             )
         if errors:
-            QMessageBox.warning(self, "部分影像无法导入", "\n".join(errors))
+            QMessageBox.warning(
+                self,
+                self._text("partial_import_title"),
+                "\n".join(errors),
+            )
         return added
 
     def choose_image_files(self) -> None:
         files, _ = QFileDialog.getOpenFileNames(
             self,
-            "选择医学影像",
+            self._text("choose_images_title"),
             "",
-            "医学影像 (*.nii *.nii.gz *.ubd.npz *.dcm);;所有文件 (*)",
+            self._text("image_filter"),
         )
         if files:
             self.add_sources(files)
 
     def choose_dicom_directory(self) -> None:
-        directory = QFileDialog.getExistingDirectory(self, "选择 DICOM 序列目录")
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            self._text("choose_dicom_title"),
+        )
         if directory:
             self.add_sources([directory])
 
@@ -586,13 +659,13 @@ class AnnotationMainWindow(QMainWindow):
         self.centralWidget().setEnabled(False)
         self.export_action.setEnabled(False)
         dialog = QProgressDialog(
-            f"正在读取并重采样：\n{source.path}",
+            self._text("loading_message", path=source.path),
             "",
             0,
             0,
             self,
         )
-        dialog.setWindowTitle("正在加载影像")
+        dialog.setWindowTitle(self._text("loading_title"))
         dialog.setCancelButton(None)
         dialog.setMinimumDuration(0)
         dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
@@ -600,7 +673,9 @@ class AnnotationMainWindow(QMainWindow):
         dialog.setAutoReset(False)
         dialog.show()
         self.loading_dialog = dialog
-        self.statusBar().showMessage(f"正在加载 {source.display_name} …")
+        self.statusBar().showMessage(
+            self._text("loading_status", name=source.display_name)
+        )
 
     def _finish_loading_ui(self) -> None:
         if self.loading_dialog is not None:
@@ -617,8 +692,12 @@ class AnnotationMainWindow(QMainWindow):
         self.load_thread = None
         self._finish_loading_ui()
         if self._load_error is not None:
-            QMessageBox.warning(self, "无法载入影像", self._load_error)
-            self.statusBar().showMessage("影像载入失败；可选择其他影像继续。")
+            QMessageBox.warning(
+                self,
+                self._text("load_failed_title"),
+                self._load_error,
+            )
+            self.statusBar().showMessage(self._text("load_failed_status"))
         self._loading_source = None
 
     def volume_load_failed(self, message: str) -> None:
@@ -649,7 +728,9 @@ class AnnotationMainWindow(QMainWindow):
         self.project_path = project_path
         self.project = project
         self._dirty = False
-        self.autosave_status.setText(f"自动保存：{self.project_path}")
+        self.autosave_status.setText(
+            self._text("autosave_path", path=self.project_path)
+        )
         depth = volume.data.shape[2]
         self.slice_slider.setRange(0, depth - 1)
         self.slice_spin.setRange(0, depth - 1)
@@ -668,8 +749,13 @@ class AnnotationMainWindow(QMainWindow):
         self.refresh_slice()
         modality = str(volume.metadata.get("modality", "UNKNOWN"))
         self.statusBar().showMessage(
-            f"已载入 {self.current_source.display_name}: {volume.data.shape}, "
-            f"spacing={volume.spacing_mm}, modality={modality}"
+            self._text(
+                "loaded_status",
+                name=self.current_source.display_name,
+                shape=volume.data.shape,
+                spacing=volume.spacing_mm,
+                modality=modality,
+            )
         )
 
     def update_operation(self) -> None:
@@ -706,26 +792,33 @@ class AnnotationMainWindow(QMainWindow):
         self.force_empty_check.blockSignals(False)
         self.review_progress.setValue(self.project.completed_count)
         if annotation.force_empty:
-            state = "强制不分割（已保存轮廓暂不参与输出）"
+            state = self._text("state_force_empty")
         elif annotation.polygons:
             sources = {polygon.source for polygon in annotation.polygons}
             if sources == {"prototype"}:
-                prefix = "机器分割关键层"
+                prefix = self._text("state_machine")
             elif sources == {"manual"}:
-                prefix = "人工关键层"
+                prefix = self._text("state_manual")
             else:
-                prefix = "机器与人工联合关键层"
-            state = f"{prefix}（{'已复核' if annotation.completed else '尚未复核'}）"
+                prefix = self._text("state_union")
+            review = self._text(
+                "state_reviewed" if annotation.completed else "state_unreviewed"
+            )
+            state = f"{prefix} ({review})"
         elif annotation.completed:
-            state = "空边界关键层（已复核）"
+            state = self._text("state_empty_boundary")
         elif annotation.keyframe:
-            state = "空关键层（尚未复核）"
+            state = self._text("state_empty_keyframe")
         elif interpolated is not None:
             bounds = self.project.interpolation_bounds(self.current_slice)
-            state = f"自动插值，来自关键层 {bounds[0]} 和 {bounds[1]}"
+            state = self._text(
+                "state_interpolated",
+                lower=bounds[0],
+                upper=bounds[1],
+            )
         else:
-            state = "未标注；需要位于两个关键层之间才能插值"
-        self.interpolation_status.setText(f"当前层：{state}")
+            state = self._text("state_unannotated")
+        self.interpolation_status.setText(self._text("current_slice", state=state))
 
     def set_slice(self, index: int) -> None:
         if self.volume is None:
@@ -774,17 +867,15 @@ class AnnotationMainWindow(QMainWindow):
             return
         self.canvas.cancel_polygon()
         if self.project.annotation(self.current_slice).force_empty:
-            self.statusBar().showMessage(
-                "本层正处于强制不分割状态；取消勾选后才能删除已保存轮廓。"
-            )
+            self.statusBar().showMessage(self._text("force_empty_delete"))
             return
         deleted = self.project.delete_last_edited_polygon(self.current_slice)
         if deleted is None:
-            self.statusBar().showMessage("当前切片没有可删除的多边形。")
+            self.statusBar().showMessage(self._text("no_polygon_delete"))
             return
         self.commit_change()
         self.refresh_slice()
-        self.statusBar().showMessage("已删除当前切片最后编辑的多边形。")
+        self.statusBar().showMessage(self._text("polygon_deleted"))
 
     def clear_current_slice(self) -> None:
         if self.project is None:
@@ -799,8 +890,8 @@ class AnnotationMainWindow(QMainWindow):
             return
         answer = QMessageBox.question(
             self,
-            "清空本层？",
-            "将删除本层全部轮廓和复核状态，使其重新使用相邻关键层插值。",
+            self._text("clear_title"),
+            self._text("clear_message"),
         )
         if answer != QMessageBox.StandardButton.Yes:
             return
@@ -815,8 +906,8 @@ class AnnotationMainWindow(QMainWindow):
         if target.polygons:
             answer = QMessageBox.question(
                 self,
-                "覆盖本层？",
-                "本层已有多边形。是否用上一层标注覆盖？",
+                self._text("overwrite_title"),
+                self._text("overwrite_message"),
             )
             if answer != QMessageBox.StandardButton.Yes:
                 return
@@ -866,14 +957,22 @@ class AnnotationMainWindow(QMainWindow):
         try:
             self.project.save(self.project_path)
         except Exception as exc:
-            self.autosave_status.setText(f"自动保存失败：{exc}")
+            self.autosave_status.setText(self._text("autosave_failed", error=exc))
             if notify:
-                QMessageBox.critical(self, "自动保存失败", str(exc))
+                QMessageBox.critical(
+                    self,
+                    self._text("autosave_failed_title"),
+                    str(exc),
+                )
             return False
         self._dirty = False
         saved_at = QTime.currentTime().toString("HH:mm:ss")
         self.autosave_status.setText(
-            f"自动保存：{saved_at}\n{self.project_path}（含 .bak）"
+            self._text(
+                "autosave_success",
+                time=saved_at,
+                path=self.project_path,
+            )
         )
         return True
 
@@ -892,20 +991,31 @@ class AnnotationMainWindow(QMainWindow):
                 interpolate=True,
             )
         except Exception as exc:
-            QMessageBox.critical(self, "导出失败", str(exc))
+            QMessageBox.critical(
+                self,
+                self._text("export_failed_title"),
+                str(exc),
+            )
             return
         finally:
             QApplication.restoreOverrideCursor()
         QMessageBox.information(
             self,
-            "导出完成",
-            f"{output}\n\n已生成 "
-            f"{self.project.interpolated_slice_count} 个中间插值层。",
+            self._text("export_complete_title"),
+            self._text(
+                "export_complete_message",
+                path=output,
+                count=self.project.interpolated_slice_count,
+            ),
         )
 
     def closeEvent(self, event) -> None:
         if self.load_thread is not None:
-            QMessageBox.information(self, "正在加载", "请等待当前影像加载完成。")
+            QMessageBox.information(
+                self,
+                self._text("loading_close_title"),
+                self._text("loading_close_message"),
+            )
             event.ignore()
             return
         if not self.save_project(notify=True):
@@ -918,9 +1028,14 @@ def run_annotation_app(
     *,
     sources: list[ImageSource] | None = None,
     spacing_mm: float = 0.8,
+    language: UiLanguage = "en",
 ) -> int:
     app = QApplication.instance() or QApplication(sys.argv)
-    window = AnnotationMainWindow(sources=sources, spacing_mm=spacing_mm)
+    window = AnnotationMainWindow(
+        sources=sources,
+        spacing_mm=spacing_mm,
+        language=language,
+    )
     window.show()
     return app.exec()
 

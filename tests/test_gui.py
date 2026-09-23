@@ -57,7 +57,23 @@ def test_no_argument_window_starts_without_images() -> None:
 
     assert window.source_list.count() == 0
     assert window.volume is None
+    assert window.language == "en"
+    assert window.file_button.text() == "Import image files"
     assert all(not widget.isEnabled() for widget in window.editor_widgets)
+    window.close()
+
+
+def test_interface_language_can_switch_without_restart() -> None:
+    app = _app()
+    window = AnnotationMainWindow(sources=[])
+
+    window.set_language("zh")
+    app.processEvents()
+
+    assert window.language == "zh"
+    assert window.file_button.text() == "导入影像文件"
+    assert window.windowTitle() == "med-image-seg - 医疗影像多边形标注"
+    assert window.language_combo.currentData() == "zh"
     window.close()
 
 
