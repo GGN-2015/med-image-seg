@@ -4,6 +4,12 @@
 
 The GUI is bilingual. English is the default, and users can switch between English and Chinese at runtime without reloading the image.
 
+## Screenshot
+
+![med-image-seg showing machine and manual bone contours on a real pelvic CBCT](docs/images/annotation-workflow.png)
+
+The example shows a real pelvic CBCT with machine-generated contours in orange and purple, plus manual corrections in green and red on the same slice. The anonymized image is case `2PB043` from the [SynthRAD2023 dataset](https://doi.org/10.5281/zenodo.7260705), released under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/).
+
 ## Installation and launch
 
 Python 3.12 or later is required.
