@@ -57,6 +57,39 @@ Annotations are always stored beside the source image:
 
 The JSON does not store source paths or DICOM identity fields. It contains only the content fingerprint, resampled geometry, contours, and review state. Every polygon addition, vertex drag, deletion, copy, clear, or review action is saved immediately with atomic replacement. A rolling `.json.bak` backup and a 10-second fallback autosave are also maintained.
 
+### Multiple annotation files
+
+The **Annotation number** integer control at the top of the right panel defaults
+to **0** and accepts any nonnegative integer, including values beyond a 32-bit
+spin box's range. Use the arrows, or type a number and press Enter/leave the field
+to switch. Typing a multi-digit number does not load each intermediate number.
+
+- Number **0** retains the original `scan.med-image-seg.json` path and always
+  preserves the existing empty-project save behavior.
+- Number **n >= 1** uses `scan.med-image-seg-<n>.json` in the same directory.
+  DICOM directories use `.med-image-seg-<n>.json`.
+- Switching closes and saves a draft with at least three vertices, saves the
+  previous project, and opens the selected project without reloading the image.
+  Drafts with fewer than three vertices cannot form a polygon and are discarded
+  only after a successful switch.
+  A missing numbered project starts empty, not as a copy of number 0. The current
+  slice, window/level, and observation intersection are preserved. The selected
+  number is retained when another image is loaded.
+- Numbered projects save immediately after polygon and interpolation-boundary
+  changes, using the same atomic replacement and backup mechanism as number 0.
+  When there are **no stored polygons on any slice**, the numbered JSON, `.bak`,
+  `.tmp`, and `.bak.tmp` are removed. Review, empty-keyframe, or forced-empty
+  flags alone do not keep a numbered file; those flags are therefore lost when
+  leaving an empty numbered project. A forced-empty slice with saved polygons,
+  or an erase-only polygon, still counts as having polygons and keeps the file.
+- Save, deletion, or target-validation failures leave the current project active
+  and restore the displayed number. Observation mode refreshes all three mask
+  views when the annotation number changes.
+
+The JSON export action saves the selected number and follows its empty-file
+policy. NIfTI and UBD exports use the selected annotation's mask and retain their
+existing output filenames.
+
 ## GUI controls
 
 - Loading and resampling run on a background thread. A modal progress indicator is visible and the main GUI is disabled while loading.
@@ -65,6 +98,12 @@ The JSON does not store source paths or DICOM identity fields. It contains only 
 - Drag a colored vertex to reshape an existing polygon.
 - `Ctrl+Z` or **Delete last edited polygon on this slice** removes the polygon most recently added or vertex-edited on the current slice.
 - `C` copies the previous slice annotation; `M` marks the current slice as reviewed.
+- **Prev labeled slice** and **Next labeled slice**, below the ordinary slice
+  buttons, jump to the nearest earlier/later slice with stored polygons in the
+  currently selected annotation project. Interpolation-only slices and empty
+  review/keyframe slices are skipped; stored polygons still count on forced-empty
+  slices. Navigation does not wrap. A modal message appears when no matching
+  slice exists in that direction. The buttons also work in observation mode.
 - **Force no segmentation on this slice** keeps the output slice empty and suppresses blue interpolation. Saved contours remain intact and reappear when the option is cleared. Adding a new contour also clears the forced-empty state.
 - Empty slices between two keyframes are interpolated dynamically with signed distance fields and displayed as translucent blue regions.
 - A read-only coverage bar below the slice slider highlights slices whose final mask is nonempty, including machine/manual contours and interpolation. Empty and forced-empty slices remain gray, so coverage can contain multiple separate intervals. Each slice is aligned to the native slider handle position, including its end margins; hiding the interpolation preview does not change coverage. Coverage is recalculated after annotation changes, not on every slice navigation or window/level adjustment.
@@ -74,6 +113,29 @@ The JSON does not store source paths or DICOM identity fields. It contains only 
 - The `.med-image-seg.json` toolbar action explicitly saves the current annotation project beside the source image and shows its path. It uses the same JSON format, atomic replacement, and rolling backup as autosave, and rewrites the file even when there are no pending edits. The JSON stores contours and review state rather than a rasterized mask; interpolated slices are reconstructed when needed.
 
 NIfTI masks are first written to an ASCII-only temporary path, then copied beside the source image and atomically replaced. This supports Unicode output paths on Windows without exposing existing masks to partial writes. Temporary files are cleaned up after both successful and failed exports.
+
+## Read-only orthogonal observation
+
+Select **Observe (read-only)** in Polygon mode to keep the LP view in place and
+open nonmodal PS and SL companion windows. These windows cannot be closed
+independently; selecting Add or Erase hides them and restores editing. A draft
+with at least three vertices is closed and saved before entering observation;
+a draft with fewer vertices is discarded because it cannot form a polygon.
+
+The three views share a single L/P/S voxel intersection. Click any image to move
+that intersection and update the other two slice positions, or use the slice
+controls. Indices start at zero. LP displays horizontal L and vertical P; PS
+displays horizontal P and vertical S; SL displays horizontal S and vertical L.
+The directions are also labeled in the PS and SL windows.
+
+LP is cyan, PS is magenta, and SL is yellow. Each center marker has its own
+plane's color; a reference line uses the color of the plane it represents.
+LP preserves visible control points without allowing edits. PS and SL show blue
+sections of the same complete interpolated mask used for export, including
+manual contours, erasures, and forced-empty slices. The mask is computed once
+when entering observation and reused while navigating. All polygon editing,
+review, and forced-empty controls and shortcuts are disabled; navigation,
+contrast, zoom, and export remain available.
 
 ## Python API
 

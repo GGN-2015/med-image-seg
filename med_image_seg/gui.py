@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import operator
 import sys
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
@@ -35,8 +36,10 @@ from PySide6.QtGui import (
     QPixmap,
     QPolygonF,
     QShortcut,
+    QValidator,
 )
 from PySide6.QtWidgets import (
+    QAbstractSpinBox,
     QApplication,
     QButtonGroup,
     QCheckBox,
@@ -76,7 +79,64 @@ from PySide6.QtWidgets import (
 from .annotation import AnnotationExporter, AnnotationProject, PolygonAnnotation
 from .io import MedicalVolume, MedicalVolumeReader
 from .localization import UiLanguage, normalize_language, translate
+from .observation import AXIS_COLORS, OBSERVATION_PLANES, ObservationPlane
 from .sources import ImageCollection, ImageSource
+
+
+class AnnotationIndexSpinBox(QAbstractSpinBox):
+    """An unrestricted nonnegative integer selector with commit-only value changes."""
+
+    valueChanged = Signal(object)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._value = 0
+        self.lineEdit().setText("0")
+        self.setKeyboardTracking(False)
+        self.setAccelerated(True)
+        self.editingFinished.connect(self._commit_text)
+
+    def value(self) -> int:
+        return self._value
+
+    def setValue(self, value: int) -> None:
+        value = operator.index(value)
+        if value < 0:
+            raise ValueError("annotation index must be nonnegative")
+        self.lineEdit().setText(str(value))
+        if value != self._value:
+            self._value = value
+            self.valueChanged.emit(value)
+
+    def validate(self, text: str, position: int):
+        if not text:
+            state = QValidator.State.Intermediate
+        elif text.isascii() and text.isdecimal():
+            state = QValidator.State.Acceptable
+        else:
+            state = QValidator.State.Invalid
+        return state, text, position
+
+    def fixup(self, text: str) -> str:
+        return str(self._value)
+
+    def _commit_text(self) -> None:
+        text = self.lineEdit().text()
+        self.setValue(int(text) if text else self._value)
+
+    def stepBy(self, steps: int) -> None:
+        text = self.lineEdit().text()
+        current = int(text) if text else self._value
+        self.setValue(max(0, current + steps))
+
+    def stepEnabled(self):
+        if self.isReadOnly():
+            return QAbstractSpinBox.StepEnabledFlag.StepNone
+        flags = QAbstractSpinBox.StepEnabledFlag.StepUpEnabled
+        text = self.lineEdit().text()
+        if (int(text) if text else self._value) > 0:
+            flags |= QAbstractSpinBox.StepEnabledFlag.StepDownEnabled
+        return flags
 
 
 class MaskCoverageBar(QWidget):
@@ -155,6 +215,7 @@ class SliceCanvas(QGraphicsView):
 
     polygon_finished = Signal(object, str)
     polygon_changed = Signal(int, object)
+    position_clicked = Signal(QPointF)
 
     def __init__(self) -> None:
         super().__init__()
@@ -173,6 +234,75 @@ class SliceCanvas(QGraphicsView):
         self._operation = "add"
         self._image_rect = QRectF()
         self._first_image = True
+        self._auto_fit = True
+        self.read_only = False
+        self._crosshair_position: QPointF | None = None
+        self._crosshair_colors: tuple[str, str, str] = ("", "", "")
+
+    def set_read_only(self, read_only: bool) -> None:
+        self.read_only = read_only
+        self._dragging_handle = None
+        self.cancel_polygon()
+        for handle in self._handles:
+            handle.setCursor(
+                Qt.CursorShape.ArrowCursor
+                if read_only
+                else Qt.CursorShape.SizeAllCursor
+            )
+
+    def set_crosshair(
+        self, plane: ObservationPlane | None, position: tuple[int, int, int]
+    ) -> None:
+        if plane is None:
+            self._crosshair_position = None
+        else:
+            self._crosshair_position = QPointF(
+                position[plane.horizontal_axis] + 0.5,
+                position[plane.vertical_axis] + 0.5,
+            )
+            self._crosshair_colors = (
+                AXIS_COLORS[plane.horizontal_axis],
+                AXIS_COLORS[plane.vertical_axis],
+                plane.color,
+            )
+        self.viewport().update()
+
+    def drawForeground(self, painter: QPainter, rect: QRectF) -> None:
+        super().drawForeground(painter, rect)
+        point = self._crosshair_position
+        if point is None:
+            return
+        painter.save()
+        painter.setClipRect(self._image_rect)
+        vertical_color, horizontal_color, center_color = self._crosshair_colors
+        for color, start, end in (
+            (
+                vertical_color,
+                QPointF(point.x(), 0),
+                QPointF(point.x(), self._image_rect.height()),
+            ),
+            (
+                horizontal_color,
+                QPointF(0, point.y()),
+                QPointF(self._image_rect.width(), point.y()),
+            ),
+        ):
+            pen = QPen(QColor(color), 1.0)
+            pen.setCosmetic(True)
+            painter.setPen(pen)
+            painter.drawLine(start, end)
+        pen = QPen(QColor(center_color), 2.0)
+        pen.setCosmetic(True)
+        painter.setPen(pen)
+        radius = 6.0 / max(abs(self.transform().m11()), 0.001)
+        painter.drawLine(
+            point + QPointF(-radius, -radius), point + QPointF(radius, radius)
+        )
+        painter.drawLine(
+            point + QPointF(-radius, radius), point + QPointF(radius, -radius)
+        )
+        painter.drawEllipse(point, radius / 2, radius / 2)
+        painter.restore()
 
     def set_operation(self, operation: str) -> None:
         self._operation = operation
@@ -203,7 +333,9 @@ class SliceCanvas(QGraphicsView):
         ).copy()
         image_item = self.scene().addPixmap(QPixmap.fromImage(qimage))
         image_item.setZValue(0)
-        self._image_rect = QRectF(0, 0, width, height)
+        image_rect = QRectF(0, 0, width, height)
+        image_size_changed = image_rect != self._image_rect
+        self._image_rect = image_rect
         self.scene().setSceneRect(self._image_rect)
         if interpolated_mask is not None:
             overlay = np.zeros((height, width, 4), dtype=np.uint8)
@@ -243,11 +375,14 @@ class SliceCanvas(QGraphicsView):
             for vertex_index, point in enumerate(points):
                 handle = VertexHandle(polygon_index, vertex_index, color)
                 handle.setPos(point)
+                if self.read_only:
+                    handle.setCursor(Qt.CursorShape.ArrowCursor)
                 self.scene().addItem(handle)
                 self._handles.append(handle)
-        if self._first_image:
+        if self._first_image or image_size_changed:
             self.fitInView(self._image_rect, Qt.AspectRatioMode.KeepAspectRatio)
             self._first_image = False
+            self._auto_fit = True
 
     def _update_draft(self) -> None:
         if self._draft_item is not None:
@@ -265,7 +400,7 @@ class SliceCanvas(QGraphicsView):
         self._draft_item.setZValue(3)
 
     def finish_polygon(self) -> None:
-        if not self.isEnabled() or len(self._draft_points) < 3:
+        if self.read_only or not self.isEnabled() or len(self._draft_points) < 3:
             return
         points = [(point.x(), point.y()) for point in self._draft_points]
         self._draft_points.clear()
@@ -277,6 +412,13 @@ class SliceCanvas(QGraphicsView):
         self._update_draft()
 
     def mousePressEvent(self, event) -> None:
+        if self.read_only:
+            if event.button() == Qt.MouseButton.LeftButton:
+                point = self.mapToScene(event.position().toPoint())
+                if self._image_rect.contains(point):
+                    self.position_clicked.emit(point)
+            event.accept()
+            return
         if event.button() == Qt.MouseButton.LeftButton:
             if not self._draft_points:
                 item = self.itemAt(event.position().toPoint())
@@ -337,6 +479,9 @@ class SliceCanvas(QGraphicsView):
         super().mouseReleaseEvent(event)
 
     def mouseDoubleClickEvent(self, event) -> None:
+        if self.read_only:
+            self.mousePressEvent(event)
+            return
         if event.button() == Qt.MouseButton.LeftButton:
             self.finish_polygon()
             event.accept()
@@ -344,9 +489,15 @@ class SliceCanvas(QGraphicsView):
         super().mouseDoubleClickEvent(event)
 
     def wheelEvent(self, event) -> None:
+        self._auto_fit = False
         factor = 1.2 if event.angleDelta().y() > 0 else 1 / 1.2
         self.scale(factor, factor)
         event.accept()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self._auto_fit and not self._image_rect.isEmpty():
+            self.fitInView(self._image_rect, Qt.AspectRatioMode.KeepAspectRatio)
 
 
 class VertexHandle(QGraphicsEllipseItem):
@@ -359,6 +510,38 @@ class VertexHandle(QGraphicsEllipseItem):
         self.setZValue(4)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
         self.setCursor(Qt.CursorShape.SizeAllCursor)
+
+
+class OrthogonalSliceWindow(QWidget):
+    """A nonmodal companion view whose lifetime is controlled by the main window."""
+
+    def __init__(self, parent: QWidget, plane: ObservationPlane) -> None:
+        super().__init__(
+            parent,
+            Qt.WindowType.Window
+            | Qt.WindowType.CustomizeWindowHint
+            | Qt.WindowType.WindowTitleHint
+            | Qt.WindowType.WindowMinMaxButtonsHint,
+        )
+        self.plane = plane
+        self.setAttribute(Qt.WidgetAttribute.WA_QuitOnClose, False)
+        self.setWindowModality(Qt.WindowModality.NonModal)
+        self.resize(560, 540)
+        layout = QVBoxLayout(self)
+        self.axes_label = QLabel()
+        layout.addWidget(self.axes_label)
+        self.canvas = SliceCanvas()
+        self.canvas.set_read_only(True)
+        layout.addWidget(self.canvas, 1)
+        navigation = QHBoxLayout()
+        self.slice_label = QLabel()
+        navigation.addWidget(self.slice_label)
+        self.slice_spin = QSpinBox()
+        navigation.addWidget(self.slice_spin)
+        layout.addLayout(navigation)
+
+    def closeEvent(self, event) -> None:
+        event.ignore()
 
 
 class VolumeLoadThread(QThread):
@@ -402,6 +585,8 @@ class AnnotationMainWindow(QMainWindow):
         self.volume: MedicalVolume | None = None
         self.project: AnnotationProject | None = None
         self.project_path: Path | None = None
+        self.annotation_index = 0
+        self._switching_annotation = False
         self.current_slice = 0
         self.load_thread: VolumeLoadThread | None = None
         self._loading_source: ImageSource | None = None
@@ -410,6 +595,11 @@ class AnnotationMainWindow(QMainWindow):
         self._dirty = False
         self._closing_polygon = False
         self._mask_coverage_dirty = True
+        self.read_only = False
+        self.observation_position = (0, 0, 0)
+        self._observation_mask: np.ndarray | None = None
+        self.observation_windows: dict[str, OrthogonalSliceWindow] = {}
+        self._editing_interpolation_visible = True
         self._build_ui(spacing_mm)
         self._bind_shortcuts()
         self._refresh_source_list()
@@ -489,6 +679,9 @@ class AnnotationMainWindow(QMainWindow):
         self.canvas = SliceCanvas()
         self.canvas.polygon_finished.connect(self.add_polygon)
         self.canvas.polygon_changed.connect(self.update_polygon)
+        self.canvas.position_clicked.connect(
+            lambda point: self._observation_clicked("LP", point)
+        )
         center_layout.addWidget(self.canvas, 1)
         slice_row = QGridLayout()
         slice_row.setColumnStretch(1, 1)
@@ -497,6 +690,12 @@ class AnnotationMainWindow(QMainWindow):
         self.previous_button.clicked.connect(lambda: self.move_slice(-1))
         self.next_button = QPushButton()
         self.next_button.clicked.connect(lambda: self.move_slice(1))
+        self.previous_labeled_button = QPushButton()
+        self.previous_labeled_button.clicked.connect(
+            lambda: self.go_to_labeled_slice(-1)
+        )
+        self.next_labeled_button = QPushButton()
+        self.next_labeled_button.clicked.connect(lambda: self.go_to_labeled_slice(1))
         self.slice_slider = QSlider(Qt.Orientation.Horizontal)
         self.slice_slider.valueChanged.connect(self.set_slice)
         self.mask_coverage_bar = MaskCoverageBar(self.slice_slider)
@@ -507,22 +706,41 @@ class AnnotationMainWindow(QMainWindow):
         slice_row.addWidget(self.slice_spin, 0, 2)
         slice_row.addWidget(self.next_button, 0, 3)
         slice_row.addWidget(self.mask_coverage_bar, 1, 1)
+        slice_row.addWidget(self.previous_labeled_button, 1, 0)
+        slice_row.addWidget(self.next_labeled_button, 1, 3)
         center_layout.addLayout(slice_row)
 
         right = QWidget()
         right_layout = QVBoxLayout(right)
+        annotation_row = QHBoxLayout()
+        self.annotation_index_label = QLabel()
+        self.annotation_index_spin = AnnotationIndexSpinBox()
+        self.annotation_index_label.setBuddy(self.annotation_index_spin)
+        self.annotation_index_spin.valueChanged.connect(self.set_annotation_index)
+        annotation_row.addWidget(self.annotation_index_label)
+        annotation_row.addWidget(self.annotation_index_spin, 1)
+        right_layout.addLayout(annotation_row)
         self.mode_group = QGroupBox()
         mode_layout = QVBoxLayout(self.mode_group)
         self.add_radio = QRadioButton()
         self.erase_radio = QRadioButton()
+        self.observe_radio = QRadioButton()
         self.add_radio.setChecked(True)
         modes = QButtonGroup(self)
         modes.addButton(self.add_radio)
         modes.addButton(self.erase_radio)
-        self.add_radio.toggled.connect(self.update_operation)
+        modes.addButton(self.observe_radio)
+        modes.buttonToggled.connect(
+            lambda _button, checked: self.update_operation() if checked else None
+        )
         mode_layout.addWidget(self.add_radio)
         mode_layout.addWidget(self.erase_radio)
+        mode_layout.addWidget(self.observe_radio)
         right_layout.addWidget(self.mode_group)
+        self.observation_status = QLabel()
+        self.observation_status.setWordWrap(True)
+        self.observation_status.hide()
+        right_layout.addWidget(self.observation_status)
 
         self.finish_button = QPushButton()
         self.finish_button.clicked.connect(self.canvas.finish_polygon)
@@ -599,6 +817,15 @@ class AnnotationMainWindow(QMainWindow):
         center.setEnabled(False)
         right.setEnabled(False)
         self.editor_widgets = (center, right)
+        self.editing_controls = (
+            self.finish_button,
+            self.cancel_button,
+            self.delete_button,
+            self.copy_button,
+            self.clear_button,
+            self.completed_check,
+            self.force_empty_check,
+        )
         self._retranslate_ui()
 
     def _text(self, key: str, **values: object) -> str:
@@ -637,9 +864,17 @@ class AnnotationMainWindow(QMainWindow):
         self.load_button.setText(self._text("load_selected"))
         self.previous_button.setText(self._text("previous_slice"))
         self.next_button.setText(self._text("next_slice"))
+        self.previous_labeled_button.setText(self._text("previous_labeled_slice"))
+        self.next_labeled_button.setText(self._text("next_labeled_slice"))
+        self.previous_labeled_button.setToolTip(self._text("labeled_slice_tooltip"))
+        self.next_labeled_button.setToolTip(self._text("labeled_slice_tooltip"))
         self.mode_group.setTitle(self._text("polygon_mode"))
+        self.annotation_index_label.setText(self._text("annotation_index"))
+        self.annotation_index_spin.setAccessibleName(self._text("annotation_index"))
+        self.annotation_index_spin.setToolTip(self._text("annotation_index_tooltip"))
         self.add_radio.setText(self._text("add_region"))
         self.erase_radio.setText(self._text("erase_region"))
+        self.observe_radio.setText(self._text("observe_mode"))
         self.finish_button.setText(self._text("finish_polygon"))
         self.cancel_button.setText(self._text("cancel_polygon"))
         self.delete_button.setText(self._text("delete_last"))
@@ -654,13 +889,13 @@ class AnnotationMainWindow(QMainWindow):
         self.window_group.setTitle(self._text("window"))
         self.level_label.setText(self._text("window_level"))
         self.width_label.setText(self._text("window_width"))
-        self.hint_label.setText(self._text("hint"))
+        self.hint_label.setText(
+            self._text("observation_hint" if self.read_only else "hint")
+        )
         if self.volume is not None and self.project is not None:
             self.refresh_slice()
             if self.project_path is not None:
-                self.autosave_status.setText(
-                    self._text("autosave_path", path=self.project_path)
-                )
+                self._show_annotation_path()
         else:
             self.interpolation_status.setText(self._text("slice_not_loaded"))
             self.autosave_status.setText(self._text("autosave_waiting"))
@@ -673,19 +908,16 @@ class AnnotationMainWindow(QMainWindow):
         QShortcut(
             QKeySequence(Qt.Key.Key_Right), self, activated=lambda: self.move_slice(1)
         )
-        QShortcut(
-            QKeySequence(Qt.Key.Key_Space), self, activated=self.canvas.finish_polygon
-        )
-        QShortcut(
-            QKeySequence(Qt.Key.Key_Escape), self, activated=self.canvas.cancel_polygon
-        )
-        QShortcut(
-            QKeySequence.StandardKey.Undo,
-            self,
-            activated=self.delete_last_edited_polygon,
-        )
-        QShortcut(QKeySequence("C"), self, activated=self.copy_previous_slice)
-        QShortcut(QKeySequence("M"), self, activated=self.toggle_completed)
+        self.editing_shortcuts = [
+            QShortcut(QKeySequence(sequence), self, activated=callback)
+            for sequence, callback in (
+                (Qt.Key.Key_Space, self.canvas.finish_polygon),
+                (Qt.Key.Key_Escape, self.canvas.cancel_polygon),
+                (QKeySequence.StandardKey.Undo, self.delete_last_edited_polygon),
+                ("C", self.copy_previous_slice),
+                ("M", self.toggle_completed),
+            )
+        ]
         QShortcut(QKeySequence("E"), self, activated=self.export_mask)
 
     def _refresh_source_list(self) -> None:
@@ -763,6 +995,8 @@ class AnnotationMainWindow(QMainWindow):
 
     def _show_loading(self, source: ImageSource) -> None:
         self.centralWidget().setEnabled(False)
+        for view in self.observation_windows.values():
+            view.setEnabled(False)
         self.export_action.setEnabled(False)
         self.export_ubd_action.setEnabled(False)
         self.export_json_action.setEnabled(False)
@@ -797,6 +1031,9 @@ class AnnotationMainWindow(QMainWindow):
         self.export_action.setEnabled(has_volume)
         self.export_ubd_action.setEnabled(has_volume)
         self.export_json_action.setEnabled(has_volume)
+        for view in self.observation_windows.values():
+            view.setEnabled(has_volume)
+        self._apply_mode_ui()
 
     def load_thread_finished(self) -> None:
         self.load_thread = None
@@ -813,23 +1050,117 @@ class AnnotationMainWindow(QMainWindow):
     def volume_load_failed(self, message: str) -> None:
         self._load_error = message
 
+    @staticmethod
+    def _open_annotation_project(
+        source: ImageSource, volume: MedicalVolume, index: int
+    ) -> tuple[AnnotationProject, Path]:
+        path = source.annotation_path_for_index(index)
+        if path.is_file() or Path(f"{path}.bak").is_file():
+            project = AnnotationProject.load(path)
+            project.validate_volume(volume)
+            if project.source_fingerprint != source.fingerprint:
+                raise ValueError("annotation fingerprint does not match this image")
+        else:
+            project = AnnotationProject.create(
+                image_id=source.source_id,
+                source_fingerprint=source.fingerprint,
+                volume=volume,
+            )
+            if index == 0:
+                project.save(path)
+        if index > 0 and not project.has_polygons:
+            project.save(path, delete_if_empty=True)
+        return project, path
+
+    def _sync_annotation_index_spin(self) -> None:
+        was_blocked = self.annotation_index_spin.blockSignals(True)
+        self.annotation_index_spin.setValue(self.annotation_index)
+        self.annotation_index_spin.blockSignals(was_blocked)
+
+    def _show_annotation_path(self) -> None:
+        empty_numbered = (
+            self.annotation_index > 0
+            and self.project is not None
+            and not self.project.has_polygons
+        )
+        self.autosave_status.setText(
+            self._text(
+                "annotation_empty_status" if empty_numbered else "autosave_path",
+                index=self.annotation_index,
+                path=self.project_path,
+            )
+        )
+
+    def set_annotation_index(self, index: int) -> bool:
+        """Save the active annotation and switch without reloading the image."""
+
+        index = operator.index(index)
+        if index < 0:
+            raise ValueError("annotation index must be nonnegative")
+        if (
+            self._closing_polygon
+            or self._switching_annotation
+            or self.load_thread is not None
+        ):
+            self._sync_annotation_index_spin()
+            return False
+        if index == self.annotation_index:
+            self._sync_annotation_index_spin()
+            return True
+        if self.project is None or self.volume is None or self.current_source is None:
+            self.annotation_index = index
+            self._sync_annotation_index_spin()
+            return True
+        self._switching_annotation = True
+        try:
+            self.canvas.finish_polygon()
+            if not self.save_project(notify=True, force=True):
+                return False
+            error = None
+            with self._polygon_busy_ui("switching_annotation_status"):
+                try:
+                    project, path = self._open_annotation_project(
+                        self.current_source, self.volume, index
+                    )
+                    observation_mask = (
+                        project.to_mask(interpolate=True) if self.read_only else None
+                    )
+                except Exception as exc:
+                    error = exc
+                else:
+                    self.canvas.cancel_polygon()
+                    self.project = project
+                    self.project_path = path
+                    self.annotation_index = index
+                    self._dirty = False
+                    self._mask_coverage_dirty = True
+                    self._observation_mask = observation_mask
+                    self._sync_annotation_index_spin()
+                    self._show_annotation_path()
+                    self.refresh_slice()
+            if error is not None:
+                QMessageBox.critical(
+                    self, self._text("annotation_switch_failed"), str(error)
+                )
+                return False
+            self.statusBar().showMessage(
+                self._text("annotation_selected", index=index, path=self.project_path)
+            )
+            return True
+        finally:
+            self._switching_annotation = False
+            self._sync_annotation_index_spin()
+
     def volume_loaded(self, volume: MedicalVolume) -> None:
         assert self._loading_source is not None
         source = self._loading_source
-        project_path = source.annotation_path
         try:
-            if project_path.is_file() or Path(f"{project_path}.bak").is_file():
-                project = AnnotationProject.load(project_path)
-                project.validate_volume(volume)
-                if project.source_fingerprint != source.fingerprint:
-                    raise ValueError("annotation fingerprint does not match this image")
-            else:
-                project = AnnotationProject.create(
-                    image_id=source.source_id,
-                    source_fingerprint=source.fingerprint,
-                    volume=volume,
-                )
-                project.save(project_path)
+            project, project_path = self._open_annotation_project(
+                source, volume, self.annotation_index
+            )
+            observation_mask = (
+                project.to_mask(interpolate=True) if self.read_only else None
+            )
         except Exception as exc:
             self._load_error = f"{type(exc).__name__}: {exc}"
             return
@@ -839,9 +1170,11 @@ class AnnotationMainWindow(QMainWindow):
         self.project = project
         self._dirty = False
         self._mask_coverage_dirty = True
-        self.autosave_status.setText(
-            self._text("autosave_path", path=self.project_path)
-        )
+        self._observation_mask = observation_mask
+        self.observation_position = tuple(size // 2 for size in volume.data.shape)
+        self.current_slice = self.observation_position[2]
+        self._sync_annotation_index_spin()
+        self._show_annotation_path()
         depth = volume.data.shape[2]
         self.slice_slider.setRange(0, depth - 1)
         self.slice_spin.setRange(0, depth - 1)
@@ -870,11 +1203,145 @@ class AnnotationMainWindow(QMainWindow):
         )
 
     def update_operation(self) -> None:
-        self.canvas.set_operation("add" if self.add_radio.isChecked() else "erase")
+        observe = self.observe_radio.isChecked()
+        if observe == self.read_only:
+            if not observe:
+                self.canvas.set_operation(
+                    "add" if self.add_radio.isChecked() else "erase"
+                )
+            return
+        if observe:
+            if self.project is None:
+                self.add_radio.setChecked(True)
+                return
+            self.canvas.finish_polygon()
+            try:
+                with self._polygon_busy_ui("preparing_observation"):
+                    self._observation_mask = self.project.to_mask(interpolate=True)
+            except Exception as exc:
+                radio = (
+                    self.add_radio
+                    if self.canvas._operation == "add"
+                    else self.erase_radio
+                )
+                radio.setChecked(True)
+                QMessageBox.critical(self, self._text("observation_failed"), str(exc))
+                return
+            self._editing_interpolation_visible = self.show_interpolation.isChecked()
+        self.read_only = observe
+        self.canvas.set_read_only(observe)
+        self.show_interpolation.blockSignals(True)
+        self.show_interpolation.setChecked(
+            True if observe else self._editing_interpolation_visible
+        )
+        self.show_interpolation.blockSignals(False)
+        if observe:
+            self._ensure_observation_windows()
+        else:
+            for view in self.observation_windows.values():
+                view.hide()
+            self.canvas.set_crosshair(None, self.observation_position)
+            self.canvas.set_operation("add" if self.add_radio.isChecked() else "erase")
+            self._observation_mask = None
+        self._apply_mode_ui()
+        self.refresh_slice()
+
+    def _apply_mode_ui(self) -> None:
+        for control in self.editing_controls:
+            control.setEnabled(not self.read_only)
+        for shortcut in self.editing_shortcuts:
+            shortcut.setEnabled(not self.read_only)
+        self.show_interpolation.setEnabled(not self.read_only)
+        self.observation_status.setVisible(self.read_only)
+        self.hint_label.setText(
+            self._text("observation_hint" if self.read_only else "hint")
+        )
+
+    def _ensure_observation_windows(self) -> None:
+        for name in ("PS", "SL"):
+            if name in self.observation_windows:
+                continue
+            view = OrthogonalSliceWindow(self, OBSERVATION_PLANES[name])
+            view.canvas.position_clicked.connect(
+                lambda point, name=name: self._observation_clicked(name, point)
+            )
+            view.slice_spin.valueChanged.connect(
+                lambda index, name=name: self._set_observation_axis(name, index)
+            )
+            self.observation_windows[name] = view
+            screen = self.screen().availableGeometry()
+            width = min(560, screen.width() // 2)
+            height = min(540, screen.height() // 2)
+            view.resize(width, height)
+            view.move(
+                screen.right() - width, screen.top() + (0 if name == "PS" else height)
+            )
+
+    def _observation_clicked(self, name: str, point: QPointF) -> None:
+        if not self.read_only or self.volume is None:
+            return
+        self.observation_position = OBSERVATION_PLANES[name].position_at(
+            self.observation_position, point.x(), point.y(), self.volume.data.shape
+        )
+        self.set_slice(self.observation_position[2])
+
+    def _set_observation_axis(self, name: str, index: int) -> None:
+        if not self.read_only or self.volume is None:
+            return
+        axis = OBSERVATION_PLANES[name].fixed_axis
+        position = list(self.observation_position)
+        position[axis] = int(np.clip(index, 0, self.volume.data.shape[axis] - 1))
+        self.observation_position = tuple(position)
+        self.set_slice(self.observation_position[2])
+
+    def _refresh_observation_views(self) -> None:
+        assert self.volume is not None
+        assert self._observation_mask is not None
+        self.canvas.set_crosshair(OBSERVATION_PLANES["LP"], self.observation_position)
+        self.observation_status.setText(
+            self._text(
+                "observation_position",
+                **dict(zip("LPS", self.observation_position, strict=True)),
+            )
+        )
+        for view in self.observation_windows.values():
+            plane = view.plane
+            index = self.observation_position[plane.fixed_axis]
+            axis = "LPS"[plane.fixed_axis]
+            view.canvas.set_slice(
+                self._windowed_plane(
+                    plane.section(self.volume.data, self.observation_position)
+                ),
+                [],
+                plane.section(self._observation_mask, self.observation_position),
+            )
+            view.canvas.set_crosshair(plane, self.observation_position)
+            view.slice_spin.blockSignals(True)
+            view.slice_spin.setRange(0, self.volume.data.shape[plane.fixed_axis] - 1)
+            view.slice_spin.setValue(index)
+            view.slice_spin.blockSignals(False)
+            view.slice_label.setText(self._text("observation_slice", axis=axis))
+            view.axes_label.setText(
+                self._text(
+                    "observation_axes",
+                    horizontal="LPS"[plane.horizontal_axis],
+                    vertical="LPS"[plane.vertical_axis],
+                )
+            )
+            view.setWindowTitle(
+                self._text(
+                    "observation_title", plane=plane.name, axis=axis, index=index
+                )
+            )
+            if self.isVisible():
+                view.show()
 
     def _windowed_slice(self) -> np.ndarray:
         assert self.volume is not None
         plane = self.volume.data[:, :, self.current_slice].T
+        return self._windowed_plane(plane)
+
+    def _windowed_plane(self, plane: np.ndarray) -> np.ndarray:
         level = self.level_spin.value()
         width = self.width_spin.value()
         low = level - width / 2
@@ -888,11 +1355,19 @@ class AnnotationMainWindow(QMainWindow):
             self.mask_coverage_bar.set_presence(self.project.mask_presence())
             self._mask_coverage_dirty = False
         annotation = self.project.annotation(self.current_slice)
-        interpolated = (
-            self.project.interpolated_plane(self.current_slice)
-            if self.show_interpolation.isChecked()
-            else None
-        )
+        if self.read_only:
+            assert self._observation_mask is not None
+            interpolated = (
+                self._observation_mask[:, :, self.current_slice].T
+                if self.project.interpolation_bounds(self.current_slice) is not None
+                else None
+            )
+        else:
+            interpolated = (
+                self.project.interpolated_plane(self.current_slice)
+                if self.show_interpolation.isChecked()
+                else None
+            )
         self.canvas.set_slice(
             self._windowed_slice(),
             [] if annotation.force_empty else annotation.polygons,
@@ -933,6 +1408,8 @@ class AnnotationMainWindow(QMainWindow):
         else:
             state = self._text("state_unannotated")
         self.interpolation_status.setText(self._text("current_slice", state=state))
+        if self.read_only:
+            self._refresh_observation_views()
 
     def set_slice(self, index: int) -> None:
         if self.volume is None:
@@ -940,6 +1417,7 @@ class AnnotationMainWindow(QMainWindow):
         index = int(np.clip(index, 0, self.volume.data.shape[2] - 1))
         self.canvas.cancel_polygon()
         self.current_slice = index
+        self.observation_position = (*self.observation_position[:2], index)
         self.slice_slider.blockSignals(True)
         self.slice_spin.blockSignals(True)
         self.slice_slider.setValue(index)
@@ -951,8 +1429,38 @@ class AnnotationMainWindow(QMainWindow):
     def move_slice(self, offset: int) -> None:
         self.set_slice(self.current_slice + offset)
 
+    def go_to_labeled_slice(self, direction: int) -> None:
+        if (
+            self.project is None
+            or self.volume is None
+            or self._closing_polygon
+            or self._switching_annotation
+            or self.load_thread is not None
+        ):
+            return
+        candidates = (
+            index
+            for index, annotation in self.project.slices.items()
+            if annotation.polygons and (index - self.current_slice) * direction > 0
+        )
+        target = (max if direction < 0 else min)(candidates, default=None)
+        if target is None:
+            QMessageBox.information(
+                self,
+                self._text("labeled_slice_title"),
+                self._text(
+                    "previous_labeled_not_found"
+                    if direction < 0
+                    else "next_labeled_not_found"
+                ),
+            )
+            return
+        self.set_slice(target)
+
     @contextmanager
-    def _polygon_busy_ui(self) -> Iterator[None]:
+    def _polygon_busy_ui(
+        self, status_key: str = "closing_polygon_status"
+    ) -> Iterator[None]:
         was_enabled = self.isEnabled()
         action_states = [
             (action, action.isEnabled()) for action in self.annotation_toolbar.actions()
@@ -970,7 +1478,7 @@ class AnnotationMainWindow(QMainWindow):
             action.setEnabled(False)
         for shortcut, _enabled in shortcut_states:
             shortcut.setEnabled(False)
-        self.statusBar().showMessage(self._text("closing_polygon_status"))
+        self.statusBar().showMessage(self._text(status_key))
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             QApplication.processEvents(
@@ -993,7 +1501,7 @@ class AnnotationMainWindow(QMainWindow):
                     self.autosave_timer.start()
 
     def add_polygon(self, points: list[tuple[float, float]], operation: str) -> None:
-        if self.project is None or self._closing_polygon:
+        if self.project is None or self._closing_polygon or self.read_only:
             return
         with self._polygon_busy_ui():
             self.project.add_polygon(
@@ -1008,7 +1516,7 @@ class AnnotationMainWindow(QMainWindow):
         polygon_index: int,
         points: list[tuple[float, float]],
     ) -> None:
-        if self.project is None:
+        if self.project is None or self.read_only:
             return
         self.project.replace_polygon(
             self.current_slice,
@@ -1019,7 +1527,7 @@ class AnnotationMainWindow(QMainWindow):
         self.refresh_slice()
 
     def delete_last_edited_polygon(self) -> None:
-        if self.project is None:
+        if self.project is None or self.read_only:
             return
         self.canvas.cancel_polygon()
         if self.project.annotation(self.current_slice).force_empty:
@@ -1034,7 +1542,7 @@ class AnnotationMainWindow(QMainWindow):
         self.statusBar().showMessage(self._text("polygon_deleted"))
 
     def clear_current_slice(self) -> None:
-        if self.project is None:
+        if self.project is None or self.read_only:
             return
         annotation = self.project.annotation(self.current_slice)
         if not (
@@ -1056,7 +1564,7 @@ class AnnotationMainWindow(QMainWindow):
         self.refresh_slice()
 
     def copy_previous_slice(self) -> None:
-        if self.project is None or self.current_slice == 0:
+        if self.project is None or self.current_slice == 0 or self.read_only:
             return
         target = self.project.annotation(self.current_slice)
         if target.polygons:
@@ -1072,21 +1580,21 @@ class AnnotationMainWindow(QMainWindow):
         self.refresh_slice()
 
     def set_slice_completed(self, completed: bool) -> None:
-        if self.project is None:
+        if self.project is None or self.read_only:
             return
         self.project.set_completed(self.current_slice, completed)
         self.commit_change()
         self.refresh_slice()
 
     def set_force_empty(self, force_empty: bool) -> None:
-        if self.project is None:
+        if self.project is None or self.read_only:
             return
         self.project.set_force_empty(self.current_slice, force_empty)
         self.commit_change()
         self.refresh_slice()
 
     def toggle_completed(self) -> None:
-        if self.project is not None:
+        if self.project is not None and not self.read_only:
             self.completed_check.setChecked(not self.completed_check.isChecked())
 
     def go_to_next_incomplete(self) -> None:
@@ -1102,6 +1610,7 @@ class AnnotationMainWindow(QMainWindow):
     def commit_change(self) -> None:
         self._dirty = True
         self._mask_coverage_dirty = True
+        self._observation_mask = None
         self.save_project()
 
     def autosave_if_needed(self) -> None:
@@ -1109,14 +1618,22 @@ class AnnotationMainWindow(QMainWindow):
             self.save_project()
 
     def save_project(self, *, notify: bool = False, force: bool = False) -> bool:
+        empty_numbered = (
+            self.annotation_index > 0
+            and self.project is not None
+            and not self.project.has_polygons
+        )
         if (
             self.project is None
             or self.project_path is None
-            or (not self._dirty and not force)
+            or (not self._dirty and not force and not empty_numbered)
         ):
             return True
         try:
-            self.project.save(self.project_path)
+            if self.annotation_index > 0:
+                self.project.save(self.project_path, delete_if_empty=True)
+            else:
+                self.project.save(self.project_path)
         except Exception as exc:
             self.autosave_status.setText(self._text("autosave_failed", error=exc))
             if notify:
@@ -1127,6 +1644,9 @@ class AnnotationMainWindow(QMainWindow):
                 )
             return False
         self._dirty = False
+        if empty_numbered:
+            self._show_annotation_path()
+            return True
         saved_at = QTime.currentTime().toString("HH:mm:ss")
         self.autosave_status.setText(
             self._text(
@@ -1153,7 +1673,13 @@ class AnnotationMainWindow(QMainWindow):
         QMessageBox.information(
             self,
             self._text("export_complete_title"),
-            self._text("export_annotations_complete_message", path=self.project_path),
+            self._text(
+                "export_annotations_empty_message"
+                if self.annotation_index > 0 and not self.project.has_polygons
+                else "export_annotations_complete_message",
+                index=self.annotation_index,
+                path=self.project_path,
+            ),
         )
 
     def _export_mask(self, output: Path) -> None:
@@ -1203,7 +1729,20 @@ class AnnotationMainWindow(QMainWindow):
         if not self.save_project(notify=True):
             event.ignore()
             return
+        for view in self.observation_windows.values():
+            view.hide()
         super().closeEvent(event)
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if self.read_only and self.volume is not None:
+            for view in self.observation_windows.values():
+                view.show()
+
+    def hideEvent(self, event) -> None:
+        for view in self.observation_windows.values():
+            view.hide()
+        super().hideEvent(event)
 
 
 def run_annotation_app(

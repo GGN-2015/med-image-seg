@@ -245,3 +245,82 @@ def test_mask_presence_overlapping_keyframes_avoids_distance_and_volume_allocati
     monkeypatch.setattr(AnnotationProject, "to_mask", unexpected_computation)
 
     assert project.mask_presence().tolist() == [True] * 5
+
+
+@pytest.mark.parametrize("state", ["empty", "completed", "keyframe", "force_empty"])
+def test_empty_project_removal_ignores_non_polygon_state(tmp_path, state):
+    project = _project()
+    if state == "completed":
+        project.set_completed(2, True)
+    elif state == "keyframe":
+        project.set_keyframe(2, True)
+    elif state == "force_empty":
+        project.set_force_empty(2, True)
+    path = project.save(tmp_path / "scan.med-image-seg-1.json")
+    project.save(path)
+    assert Path(f"{path}.bak").is_file()
+    for suffix in (".tmp", ".bak.tmp"):
+        Path(f"{path}{suffix}").write_text("interrupted write", encoding="utf-8")
+
+    assert not project.has_polygons
+    assert project.save(path, delete_if_empty=True) == path
+    assert all(
+        not Path(f"{path}{suffix}").exists()
+        for suffix in ("", ".bak", ".tmp", ".bak.tmp")
+    )
+    with pytest.raises(FileNotFoundError):
+        AnnotationProject.load(path)
+
+
+def test_default_save_keeps_empty_project_and_backup(tmp_path):
+    project = _project()
+    project.set_completed(2, True)
+    path = project.save(tmp_path / "scan.med-image-seg.json")
+    project.save(path)
+    assert path.is_file()
+    assert Path(f"{path}.bak").is_file()
+    assert AnnotationProject.load(path).annotation(2).completed
+
+
+@pytest.mark.parametrize(
+    "operation, forced", [("add", False), ("erase", False), ("add", True)]
+)
+def test_delete_if_empty_counts_stored_polygons_not_nonzero_mask(
+    tmp_path, operation, forced
+):
+    project = _project()
+    project.add_polygon(
+        4, PolygonAnnotation(points=((2, 2), (8, 2), (5, 8)), operation=operation)
+    )
+    project.set_force_empty(4, forced)
+    assert project.has_polygons
+    path = project.save(tmp_path / "scan.med-image-seg-2.json", delete_if_empty=True)
+    assert path.is_file()
+    assert AnnotationProject.load(path).has_polygons
+
+
+def test_deleting_absent_empty_project_does_not_create_directories(tmp_path):
+    path = tmp_path / "not-created" / "scan.med-image-seg-9.json"
+    _project().save(path, delete_if_empty=True)
+    assert not path.parent.exists()
+
+
+def test_backup_removal_failure_does_not_delete_primary_annotation(
+    tmp_path, monkeypatch
+):
+    project = _project()
+    path = project.save(tmp_path / "scan.med-image-seg-2.json")
+    project.save(path)
+    original = Path.unlink
+
+    def fail_backup(candidate, *args, **kwargs):
+        if candidate == Path(f"{path}.bak"):
+            raise PermissionError("backup is locked")
+        return original(candidate, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "unlink", fail_backup)
+        with pytest.raises(PermissionError, match="backup is locked"):
+            project.save(path, delete_if_empty=True)
+    assert path.is_file()
+    assert Path(f"{path}.bak").is_file()

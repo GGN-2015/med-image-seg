@@ -40,6 +40,28 @@ _TEXT: dict[str, dict[UiLanguage, str]] = {
     "load_selected": {"en": "Load selected image", "zh": "载入选中影像"},
     "previous_slice": {"en": "Previous slice", "zh": "上一层"},
     "next_slice": {"en": "Next slice", "zh": "下一层"},
+    "previous_labeled_slice": {"en": "Prev labeled slice", "zh": "上一标注层"},
+    "next_labeled_slice": {"en": "Next labeled slice", "zh": "下一标注层"},
+    "labeled_slice_tooltip": {
+        "en": (
+            "Jump to the nearest slice with stored polygons in this annotation "
+            "project. Interpolation-only and empty keyframe slices are skipped. "
+            "Does not wrap at the volume boundaries."
+        ),
+        "zh": (
+            "跳转到当前编号标注中最近的有多边形的切片。"
+            "跳过仅有插值或空关键层的切片；到达边界时不循环跳转。"
+        ),
+    },
+    "labeled_slice_title": {"en": "Labeled slice navigation", "zh": "标注层跳转"},
+    "previous_labeled_not_found": {
+        "en": "No previous labeled slice was found.",
+        "zh": "未找到上一个有标注的面。",
+    },
+    "next_labeled_not_found": {
+        "en": "No next labeled slice was found.",
+        "zh": "未找到下一个有标注的面。",
+    },
     "mask_coverage_name": {"en": "Mask coverage", "zh": "掩码覆盖区间"},
     "mask_coverage_tooltip": {
         "en": (
@@ -52,8 +74,77 @@ _TEXT: dict[str, dict[UiLanguage, str]] = {
         ),
     },
     "polygon_mode": {"en": "Polygon mode", "zh": "多边形模式"},
+    "annotation_index": {"en": "Annotation number", "zh": "标注编号"},
+    "annotation_index_tooltip": {
+        "en": (
+            "Nonnegative integer. 0 uses the original .med-image-seg.json; "
+            "n > 0 uses .med-image-seg-<n>.json. Switching saves the previous "
+            "annotation. Numbered files with no polygons are removed."
+        ),
+        "zh": (
+            "输入大于等于 0 的整数。0 使用原来的 .med-image-seg.json；"
+            "n > 0 使用 .med-image-seg-<n>.json。切换前自动保存原标注。"
+            "高编号标注没有任何多边形时不保留文件。"
+        ),
+    },
+    "switching_annotation_status": {
+        "en": "Loading the selected annotation and refreshing views...",
+        "zh": "正在载入所选编号的标注并刷新视图…",
+    },
+    "annotation_switch_failed": {
+        "en": "Unable to switch annotation",
+        "zh": "无法切换标注编号",
+    },
+    "annotation_selected": {
+        "en": "Annotation {index}: {path}",
+        "zh": "当前标注 {index}：{path}",
+    },
+    "annotation_empty_status": {
+        "en": "Annotation {index} has no polygons; no JSON file is kept.\n{path}",
+        "zh": "标注 {index} 没有任何多边形，不保留 JSON 文件。\n{path}",
+    },
     "add_region": {"en": "Add region (green)", "zh": "添加区域（绿色）"},
     "erase_region": {"en": "Erase region (red)", "zh": "擦除区域（红色）"},
+    "observe_mode": {"en": "Observe (read-only)", "zh": "观察模式（只读）"},
+    "preparing_observation": {
+        "en": "Preparing interpolated orthogonal views...",
+        "zh": "正在计算三视图插值掩码…",
+    },
+    "observation_failed": {
+        "en": "Unable to prepare observation mode",
+        "zh": "无法进入观察模式",
+    },
+    "observation_position": {
+        "en": "Intersection: L={L}, P={P}, S={S}\nLP: cyan · PS: magenta · SL: yellow",
+        "zh": "交点：L={L}，P={P}，S={S}\nLP：青色 · PS：品红 · SL：黄色",
+    },
+    "observation_hint": {
+        "en": (
+            "Read-only: click any view to move the shared intersection.\n"
+            "A reference line's color identifies its plane; the center marker "
+            "identifies the current plane. Wheel to zoom.\n"
+            "LP retains control points. PS/SL show blue sections of the full "
+            "interpolated mask. Select Add/Erase to resume editing."
+        ),
+        "zh": (
+            "只读：点击任一视图移动三视图共享交点。\n"
+            "参考线颜色对应其代表的截面，中心十字星颜色对应当前截面；滚轮缩放。\n"
+            "LP 保留控制点；PS/SL 显示完整插值掩码的蓝色截面。"
+            "选择添加或擦除可恢复编辑。"
+        ),
+    },
+    "observation_title": {
+        "en": "{plane} · {axis}={index} · Read-only",
+        "zh": "{plane} · {axis}={index} · 只读观察",
+    },
+    "observation_slice": {
+        "en": "{axis} slice (0-based)",
+        "zh": "{axis} 层号（从 0 开始）",
+    },
+    "observation_axes": {
+        "en": "Horizontal: +{horizontal} →   Vertical: +{vertical} ↓",
+        "zh": "横轴：+{horizontal} →   纵轴：+{vertical} ↓",
+    },
     "finish_polygon": {
         "en": "Close current polygon [Space]",
         "zh": "闭合当前多边形 [Space]",
@@ -244,6 +335,16 @@ _TEXT: dict[str, dict[UiLanguage, str]] = {
     "export_annotations_complete_message": {
         "en": "{path}\n\nSaved annotation contours and review state.",
         "zh": "{path}\n\n已保存标注轮廓与审核状态。",
+    },
+    "export_annotations_empty_message": {
+        "en": (
+            "Annotation {index} has no polygons. Its JSON and backups are removed "
+            "instead of exporting an empty file.\n\n{path}"
+        ),
+        "zh": (
+            "标注 {index} 没有任何多边形，已按规则清理 JSON 及备份，"
+            "不导出空文件。\n\n{path}"
+        ),
     },
     "loading_close_title": {"en": "Image is loading", "zh": "正在加载"},
     "loading_close_message": {

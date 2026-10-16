@@ -237,6 +237,10 @@ class AnnotationProject:
         return sum(annotation.completed for annotation in self.slices.values())
 
     @property
+    def has_polygons(self) -> bool:
+        return any(annotation.polygons for annotation in self.slices.values())
+
+    @property
     def keyframe_indices(self) -> tuple[int, ...]:
         return tuple(
             sorted(
@@ -369,8 +373,14 @@ class AnnotationProject:
                 mask[:, :, slice_index] = (blended >= 0.0).T
         return mask
 
-    def save(self, path: str | Path) -> Path:
+    def save(self, path: str | Path, *, delete_if_empty: bool = False) -> Path:
+        """Save a project, optionally removing empty-project files and backups."""
+
         output = Path(path).expanduser().resolve()
+        if delete_if_empty and not self.has_polygons:
+            for suffix in (".bak.tmp", ".tmp", ".bak", ""):
+                Path(f"{output}{suffix}").unlink(missing_ok=True)
+            return output
         output.parent.mkdir(parents=True, exist_ok=True)
         self.updated_at = datetime.now(UTC).isoformat()
         payload = {

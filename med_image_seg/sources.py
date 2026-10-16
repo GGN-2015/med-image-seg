@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import operator
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -140,6 +141,18 @@ class ImageSource:
     def ubd_mask_path(self) -> Path:
         base = _strip_medical_suffix(self.mask_path.name)
         return self.mask_path.with_name(f"{base}.ubd.npz")
+
+    def annotation_path_for_index(self, index: int) -> Path:
+        """Return a numbered annotation path, preserving the legacy index 0."""
+
+        index = operator.index(index)
+        if index < 0:
+            raise ValueError("annotation index must be nonnegative")
+        if index == 0:
+            return self.annotation_path
+        return self.annotation_path.with_name(
+            f"{self.annotation_path.stem}-{index}.json"
+        )
 
     @property
     def display_name(self) -> str:
