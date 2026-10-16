@@ -17,8 +17,16 @@ _TEXT: dict[str, dict[UiLanguage, str]] = {
     },
     "toolbar_annotation": {"en": "Annotation", "zh": "标注"},
     "export_mask": {
-        "en": "Export interpolated 3D mask",
-        "zh": "导出含插值的 3D 掩码",
+        "en": "Export interpolated 3D mask (.nii.gz)",
+        "zh": "导出含插值的 3D 掩码（.nii.gz）",
+    },
+    "export_ubd_mask": {
+        "en": "Export interpolated 3D mask (.ubd.npz)",
+        "zh": "导出含插值的 3D 掩码（.ubd.npz）",
+    },
+    "export_annotations": {
+        "en": "Export annotations (.med-image-seg.json)",
+        "zh": "导出标注（.med-image-seg.json）",
     },
     "image_collection": {"en": "Image collection", "zh": "影像集合"},
     "import_files": {"en": "Import image files", "zh": "导入影像文件"},
@@ -32,6 +40,17 @@ _TEXT: dict[str, dict[UiLanguage, str]] = {
     "load_selected": {"en": "Load selected image", "zh": "载入选中影像"},
     "previous_slice": {"en": "Previous slice", "zh": "上一层"},
     "next_slice": {"en": "Next slice", "zh": "下一层"},
+    "mask_coverage_name": {"en": "Mask coverage", "zh": "掩码覆盖区间"},
+    "mask_coverage_tooltip": {
+        "en": (
+            "Read-only coverage aligned to the slice slider. Green: nonempty mask "
+            "including interpolation. Gray: no mask, including forced-empty slices."
+        ),
+        "zh": (
+            "与上方层号滑条对齐的只读指示器。绿色：该层最终掩码非空（含插值）；"
+            "灰色：无掩码（含强制不分割层）。"
+        ),
+    },
     "polygon_mode": {"en": "Polygon mode", "zh": "多边形模式"},
     "add_region": {"en": "Add region (green)", "zh": "添加区域（绿色）"},
     "erase_region": {"en": "Erase region (red)", "zh": "擦除区域（红色）"},
@@ -42,6 +61,13 @@ _TEXT: dict[str, dict[UiLanguage, str]] = {
     "cancel_polygon": {
         "en": "Cancel current polygon [Esc]",
         "zh": "取消当前多边形 [Esc]",
+    },
+    "closing_polygon_status": {
+        "en": (
+            "Closing polygon, saving annotations, and refreshing the view... "
+            "Please wait."
+        ),
+        "zh": "正在闭合多边形、保存标注并刷新画面，请稍候…",
     },
     "delete_last": {
         "en": "Delete last edited polygon on this slice [Ctrl+Z]",
@@ -214,6 +240,10 @@ _TEXT: dict[str, dict[UiLanguage, str]] = {
     "export_complete_message": {
         "en": "{path}\n\nGenerated {count} intermediate interpolated slices.",
         "zh": "{path}\n\n已生成 {count} 个中间插值层。",
+    },
+    "export_annotations_complete_message": {
+        "en": "{path}\n\nSaved annotation contours and review state.",
+        "zh": "{path}\n\n已保存标注轮廓与审核状态。",
     },
     "loading_close_title": {"en": "Image is loading", "zh": "正在加载"},
     "loading_close_message": {

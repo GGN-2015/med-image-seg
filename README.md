@@ -49,11 +49,11 @@ uv run med-image-seg --language zh --image "D:\images\scan.nii.gz"
 
 Annotations are always stored beside the source image:
 
-| Image type | Annotation JSON | Exported mask |
-| --- | --- | --- |
-| DICOM directory or a DICOM file inside it | `<DICOM directory>/.med-image-seg.json` | `<DICOM directory>/med-image-seg-mask.nii.gz` |
-| `scan.nii` / `scan.nii.gz` | `scan.med-image-seg.json` | `scan.med-image-seg-mask.nii.gz` |
-| `scan.ubd.npz` | `scan.med-image-seg.json` | `scan.med-image-seg-mask.nii.gz` |
+| Image type | Annotation JSON | NIfTI mask | UBD mask |
+| --- | --- | --- | --- |
+| DICOM directory or a DICOM file inside it | `<DICOM directory>/.med-image-seg.json` | `<DICOM directory>/med-image-seg-mask.nii.gz` | `<DICOM directory>/med-image-seg-mask.ubd.npz` |
+| `scan.nii` / `scan.nii.gz` | `scan.med-image-seg.json` | `scan.med-image-seg-mask.nii.gz` | `scan.med-image-seg-mask.ubd.npz` |
+| `scan.ubd.npz` | `scan.med-image-seg.json` | `scan.med-image-seg-mask.nii.gz` | `scan.med-image-seg-mask.ubd.npz` |
 
 The JSON does not store source paths or DICOM identity fields. It contains only the content fingerprint, resampled geometry, contours, and review state. Every polygon addition, vertex drag, deletion, copy, clear, or review action is saved immediately with atomic replacement. A rolling `.json.bak` backup and a 10-second fallback autosave are also maintained.
 
@@ -61,13 +61,19 @@ The JSON does not store source paths or DICOM identity fields. It contains only 
 
 - Loading and resampling run on a background thread. A modal progress indicator is visible and the main GUI is disabled while loading.
 - Left-click adds vertices. Right-click, double-click, or `Space` closes a polygon.
+- While a polygon is closing, the interface and shortcuts are disabled and a waiting cursor is shown until the annotation update, JSON save, and view refresh finish. The previous enabled states are restored even if an error occurs; input received during the operation is discarded rather than replayed afterward.
 - Drag a colored vertex to reshape an existing polygon.
 - `Ctrl+Z` or **Delete last edited polygon on this slice** removes the polygon most recently added or vertex-edited on the current slice.
 - `C` copies the previous slice annotation; `M` marks the current slice as reviewed.
 - **Force no segmentation on this slice** keeps the output slice empty and suppresses blue interpolation. Saved contours remain intact and reappear when the option is cleared. Adding a new contour also clears the forced-empty state.
 - Empty slices between two keyframes are interpolated dynamically with signed distance fields and displayed as translucent blue regions.
+- A read-only coverage bar below the slice slider highlights slices whose final mask is nonempty, including machine/manual contours and interpolation. Empty and forced-empty slices remain gray, so coverage can contain multiple separate intervals. Each slice is aligned to the native slider handle position, including its end margins; hiding the interpolation preview does not change coverage. Coverage is recalculated after annotation changes, not on every slice navigation or window/level adjustment.
 - Machine add/erase contours use orange/purple; manual add/erase contours use green/red. Machine and manual regions on the same slice are processed independently and then combined by union, so both contribute to the final mask.
-- `E` or the toolbar action exports a 3D NIfTI mask including interpolated slices.
+- `E` or the `.nii.gz` toolbar action exports a 3D NIfTI mask including interpolated slices.
+- The adjacent `.ubd.npz` toolbar action exports the same interpolated 3D mask in UBD format, preserving the L/P/S voxel array and isotropic spacing. UBD does not store the physical origin or direction.
+- The `.med-image-seg.json` toolbar action explicitly saves the current annotation project beside the source image and shows its path. It uses the same JSON format, atomic replacement, and rolling backup as autosave, and rewrites the file even when there are no pending edits. The JSON stores contours and review state rather than a rasterized mask; interpolated slices are reconstructed when needed.
+
+NIfTI masks are first written to an ASCII-only temporary path, then copied beside the source image and atomically replaced. This supports Unicode output paths on Windows without exposing existing masks to partial writes. Temporary files are cleaned up after both successful and failed exports.
 
 ## Python API
 
@@ -127,6 +133,7 @@ project.add_polygon(
 )
 project.save(source.annotation_path)
 AnnotationExporter().export(project, volume, source.mask_path)
+AnnotationExporter().export(project, volume, source.ubd_mask_path)
 ```
 
 The public API includes `ImageSource`, `ImageCollection`, `MedicalVolumeReader`, `AnnotationProject`, `PolygonAnnotation`, `AnnotationExporter`, `AnnotationApplication`, `AnnotationMainWindow`, `SliceCanvas`, `VolumeLoadThread`, and `launch_annotation_app`. GUI import, asynchronous loading, editing, saving, language switching, and export methods are callable directly from Python.

@@ -35,6 +35,7 @@ _DICOM_OUTPUT_NAMES = {
     ".med-image-seg.json.bak",
     ".med-image-seg.json.tmp",
     "med-image-seg-mask.nii.gz",
+    "med-image-seg-mask.ubd.npz",
 }
 
 
@@ -134,6 +135,11 @@ class ImageSource:
             with item.open("rb") as handle:
                 digest.update(handle.read(1024 * 1024))
         return digest.hexdigest()
+
+    @property
+    def ubd_mask_path(self) -> Path:
+        base = _strip_medical_suffix(self.mask_path.name)
+        return self.mask_path.with_name(f"{base}.ubd.npz")
 
     @property
     def display_name(self) -> str:

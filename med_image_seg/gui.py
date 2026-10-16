@@ -3,10 +3,24 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
+from itertools import pairwise
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QPointF, QRectF, Qt, QThread, QTime, QTimer, Signal
+from PySide6.QtCore import (
+    QEvent,
+    QEventLoop,
+    QPoint,
+    QPointF,
+    QRectF,
+    Qt,
+    QThread,
+    QTime,
+    QTimer,
+    Signal,
+)
 from PySide6.QtGui import (
     QAction,
     QBrush,
@@ -36,6 +50,7 @@ from PySide6.QtWidgets import (
     QGraphicsPolygonItem,
     QGraphicsScene,
     QGraphicsView,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -51,6 +66,8 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QSplitter,
     QStatusBar,
+    QStyle,
+    QStyleOptionSlider,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -60,6 +77,77 @@ from .annotation import AnnotationExporter, AnnotationProject, PolygonAnnotation
 from .io import MedicalVolume, MedicalVolumeReader
 from .localization import UiLanguage, normalize_language, translate
 from .sources import ImageCollection, ImageSource
+
+
+class MaskCoverageBar(QWidget):
+    """Read-only mask coverage aligned to the native slice slider handle centers."""
+
+    def __init__(self, slider: QSlider) -> None:
+        super().__init__()
+        self._slider = slider
+        self._presence: tuple[bool, ...] = ()
+        self.setFixedHeight(10)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        slider.installEventFilter(self)
+
+    @property
+    def presence(self) -> tuple[bool, ...]:
+        return self._presence
+
+    def set_presence(self, presence: Iterable[bool]) -> None:
+        self._presence = tuple(bool(value) for value in presence)
+        self.update()
+
+    def slice_centers(self) -> tuple[int, ...]:
+        option = QStyleOptionSlider()
+        self._slider.initStyleOption(option)
+        offset = self.mapFromGlobal(self._slider.mapToGlobal(QPoint(0, 0))).x()
+        centers: list[int] = []
+        for index in range(self._slider.minimum(), self._slider.maximum() + 1):
+            option.sliderPosition = index
+            option.sliderValue = index
+            handle = self._slider.style().subControlRect(
+                QStyle.ComplexControl.CC_Slider,
+                option,
+                QStyle.SubControl.SC_SliderHandle,
+                self._slider,
+            )
+            centers.append(offset + handle.center().x())
+        return tuple(centers)
+
+    def eventFilter(self, watched, event) -> bool:
+        if watched is self._slider and event.type() in (
+            QEvent.Type.Resize,
+            QEvent.Type.StyleChange,
+            QEvent.Type.LayoutDirectionChange,
+            QEvent.Type.Paint,
+        ):
+            self.update()
+        return super().eventFilter(watched, event)
+
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor("#c7ccd2"))
+        if not self._presence:
+            return
+        centers = self.slice_centers()
+        if len(centers) != len(self._presence):
+            return
+        cells = sorted(zip(centers, self._presence, strict=True))
+        boundaries = [0.0]
+        boundaries.extend((left[0] + right[0]) / 2 for left, right in pairwise(cells))
+        boundaries.append(float(self.width()))
+        for index, (_center, present) in enumerate(cells):
+            if present:
+                painter.fillRect(
+                    QRectF(
+                        boundaries[index],
+                        0.0,
+                        boundaries[index + 1] - boundaries[index],
+                        float(self.height()),
+                    ),
+                    QColor("#00b878"),
+                )
 
 
 class SliceCanvas(QGraphicsView):
@@ -177,7 +265,7 @@ class SliceCanvas(QGraphicsView):
         self._draft_item.setZValue(3)
 
     def finish_polygon(self) -> None:
-        if len(self._draft_points) < 3:
+        if not self.isEnabled() or len(self._draft_points) < 3:
             return
         points = [(point.x(), point.y()) for point in self._draft_points]
         self._draft_points.clear()
@@ -320,6 +408,8 @@ class AnnotationMainWindow(QMainWindow):
         self.loading_dialog: QProgressDialog | None = None
         self._load_error: str | None = None
         self._dirty = False
+        self._closing_polygon = False
+        self._mask_coverage_dirty = True
         self._build_ui(spacing_mm)
         self._bind_shortcuts()
         self._refresh_source_list()
@@ -338,6 +428,14 @@ class AnnotationMainWindow(QMainWindow):
         self.export_action.setEnabled(False)
         self.export_action.triggered.connect(self.export_mask)
         self.annotation_toolbar.addAction(self.export_action)
+        self.export_ubd_action = QAction(self)
+        self.export_ubd_action.setEnabled(False)
+        self.export_ubd_action.triggered.connect(self.export_ubd_mask)
+        self.annotation_toolbar.addAction(self.export_ubd_action)
+        self.export_json_action = QAction(self)
+        self.export_json_action.setEnabled(False)
+        self.export_json_action.triggered.connect(self.export_annotations)
+        self.annotation_toolbar.addAction(self.export_json_action)
 
         root_widget = QWidget()
         root_layout = QVBoxLayout(root_widget)
@@ -392,19 +490,23 @@ class AnnotationMainWindow(QMainWindow):
         self.canvas.polygon_finished.connect(self.add_polygon)
         self.canvas.polygon_changed.connect(self.update_polygon)
         center_layout.addWidget(self.canvas, 1)
-        slice_row = QHBoxLayout()
+        slice_row = QGridLayout()
+        slice_row.setColumnStretch(1, 1)
+        slice_row.setVerticalSpacing(2)
         self.previous_button = QPushButton()
         self.previous_button.clicked.connect(lambda: self.move_slice(-1))
         self.next_button = QPushButton()
         self.next_button.clicked.connect(lambda: self.move_slice(1))
         self.slice_slider = QSlider(Qt.Orientation.Horizontal)
         self.slice_slider.valueChanged.connect(self.set_slice)
+        self.mask_coverage_bar = MaskCoverageBar(self.slice_slider)
         self.slice_spin = QSpinBox()
         self.slice_spin.valueChanged.connect(self.set_slice)
-        slice_row.addWidget(self.previous_button)
-        slice_row.addWidget(self.slice_slider, 1)
-        slice_row.addWidget(self.slice_spin)
-        slice_row.addWidget(self.next_button)
+        slice_row.addWidget(self.previous_button, 0, 0)
+        slice_row.addWidget(self.slice_slider, 0, 1)
+        slice_row.addWidget(self.slice_spin, 0, 2)
+        slice_row.addWidget(self.next_button, 0, 3)
+        slice_row.addWidget(self.mask_coverage_bar, 1, 1)
         center_layout.addLayout(slice_row)
 
         right = QWidget()
@@ -522,6 +624,10 @@ class AnnotationMainWindow(QMainWindow):
         self.setWindowTitle(self._text("window_title"))
         self.annotation_toolbar.setWindowTitle(self._text("toolbar_annotation"))
         self.export_action.setText(self._text("export_mask"))
+        self.export_ubd_action.setText(self._text("export_ubd_mask"))
+        self.export_json_action.setText(self._text("export_annotations"))
+        self.mask_coverage_bar.setAccessibleName(self._text("mask_coverage_name"))
+        self.mask_coverage_bar.setToolTip(self._text("mask_coverage_tooltip"))
         self.image_collection_label.setText(self._text("image_collection"))
         self.file_button.setText(self._text("import_files"))
         self.dicom_button.setText(self._text("import_dicom"))
@@ -658,6 +764,8 @@ class AnnotationMainWindow(QMainWindow):
     def _show_loading(self, source: ImageSource) -> None:
         self.centralWidget().setEnabled(False)
         self.export_action.setEnabled(False)
+        self.export_ubd_action.setEnabled(False)
+        self.export_json_action.setEnabled(False)
         dialog = QProgressDialog(
             self._text("loading_message", path=source.path),
             "",
@@ -687,6 +795,8 @@ class AnnotationMainWindow(QMainWindow):
         for widget in self.editor_widgets:
             widget.setEnabled(has_volume)
         self.export_action.setEnabled(has_volume)
+        self.export_ubd_action.setEnabled(has_volume)
+        self.export_json_action.setEnabled(has_volume)
 
     def load_thread_finished(self) -> None:
         self.load_thread = None
@@ -728,6 +838,7 @@ class AnnotationMainWindow(QMainWindow):
         self.project_path = project_path
         self.project = project
         self._dirty = False
+        self._mask_coverage_dirty = True
         self.autosave_status.setText(
             self._text("autosave_path", path=self.project_path)
         )
@@ -773,6 +884,9 @@ class AnnotationMainWindow(QMainWindow):
     def refresh_slice(self) -> None:
         if self.volume is None or self.project is None:
             return
+        if self._mask_coverage_dirty:
+            self.mask_coverage_bar.set_presence(self.project.mask_presence())
+            self._mask_coverage_dirty = False
         annotation = self.project.annotation(self.current_slice)
         interpolated = (
             self.project.interpolated_plane(self.current_slice)
@@ -837,15 +951,57 @@ class AnnotationMainWindow(QMainWindow):
     def move_slice(self, offset: int) -> None:
         self.set_slice(self.current_slice + offset)
 
+    @contextmanager
+    def _polygon_busy_ui(self) -> Iterator[None]:
+        was_enabled = self.isEnabled()
+        action_states = [
+            (action, action.isEnabled()) for action in self.annotation_toolbar.actions()
+        ]
+        shortcut_states = [
+            (shortcut, shortcut.isEnabled())
+            for shortcut in self.findChildren(QShortcut)
+        ]
+        autosave_active = self.autosave_timer.isActive()
+        previous_message = self.statusBar().currentMessage()
+        self._closing_polygon = True
+        self.autosave_timer.stop()
+        self.setEnabled(False)
+        for action, _enabled in action_states:
+            action.setEnabled(False)
+        for shortcut, _enabled in shortcut_states:
+            shortcut.setEnabled(False)
+        self.statusBar().showMessage(self._text("closing_polygon_status"))
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            QApplication.processEvents(
+                QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents
+            )
+            yield
+        finally:
+            try:
+                QApplication.processEvents()
+            finally:
+                self.setEnabled(was_enabled)
+                for action, enabled in action_states:
+                    action.setEnabled(enabled)
+                for shortcut, enabled in shortcut_states:
+                    shortcut.setEnabled(enabled)
+                self.statusBar().showMessage(previous_message)
+                QApplication.restoreOverrideCursor()
+                self._closing_polygon = False
+                if autosave_active:
+                    self.autosave_timer.start()
+
     def add_polygon(self, points: list[tuple[float, float]], operation: str) -> None:
-        if self.project is None:
+        if self.project is None or self._closing_polygon:
             return
-        self.project.add_polygon(
-            self.current_slice,
-            PolygonAnnotation(points=tuple(points), operation=operation),
-        )
-        self.commit_change()
-        self.refresh_slice()
+        with self._polygon_busy_ui():
+            self.project.add_polygon(
+                self.current_slice,
+                PolygonAnnotation(points=tuple(points), operation=operation),
+            )
+            self.commit_change()
+            self.refresh_slice()
 
     def update_polygon(
         self,
@@ -945,14 +1101,19 @@ class AnnotationMainWindow(QMainWindow):
 
     def commit_change(self) -> None:
         self._dirty = True
+        self._mask_coverage_dirty = True
         self.save_project()
 
     def autosave_if_needed(self) -> None:
-        if self._dirty:
+        if self._dirty and not self._closing_polygon:
             self.save_project()
 
-    def save_project(self, *, notify: bool = False) -> bool:
-        if self.project is None or self.project_path is None or not self._dirty:
+    def save_project(self, *, notify: bool = False, force: bool = False) -> bool:
+        if (
+            self.project is None
+            or self.project_path is None
+            or (not self._dirty and not force)
+        ):
             return True
         try:
             self.project.save(self.project_path)
@@ -977,11 +1138,29 @@ class AnnotationMainWindow(QMainWindow):
         return True
 
     def export_mask(self) -> None:
-        if self.project is None or self.volume is None or self.current_source is None:
+        if self.current_source is not None:
+            self._export_mask(self.current_source.mask_path)
+
+    def export_ubd_mask(self) -> None:
+        if self.current_source is not None:
+            self._export_mask(self.current_source.ubd_mask_path)
+
+    def export_annotations(self) -> None:
+        if self.project is None or self.project_path is None:
+            return
+        if not self.save_project(notify=True, force=True):
+            return
+        QMessageBox.information(
+            self,
+            self._text("export_complete_title"),
+            self._text("export_annotations_complete_message", path=self.project_path),
+        )
+
+    def _export_mask(self, output: Path) -> None:
+        if self.project is None or self.volume is None:
             return
         if not self.save_project(notify=True):
             return
-        output = self.current_source.mask_path
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             AnnotationExporter().export(
@@ -1010,6 +1189,9 @@ class AnnotationMainWindow(QMainWindow):
         )
 
     def closeEvent(self, event) -> None:
+        if self._closing_polygon:
+            event.ignore()
+            return
         if self.load_thread is not None:
             QMessageBox.information(
                 self,

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from med_image_seg import AnnotationProject, MedicalVolume, PolygonAnnotation
 
@@ -153,3 +155,93 @@ def test_reviewing_machine_polygon_preserves_its_source() -> None:
     project.set_completed(2, True)
 
     assert project.annotation(2).polygons[0].source == "prototype"
+
+
+@pytest.mark.parametrize("interpolate", [False, True])
+@pytest.mark.parametrize("seed", range(8))
+def test_mask_presence_matches_exported_mask(seed: int, interpolate: bool) -> None:
+    project = replace(_project(), shape_lps=(20, 18, 17))
+    random = np.random.default_rng(seed)
+    for slice_index in range(project.shape_lps[2]):
+        for _polygon_index in range(int(random.integers(0, 4))):
+            left, top = random.integers(-5, 20, size=2)
+            width, height = random.integers(1, 12, size=2)
+            project.add_polygon(
+                slice_index,
+                PolygonAnnotation(
+                    points=(
+                        (float(left), float(top)),
+                        (float(left + width), float(top)),
+                        (float(left + width), float(top + height)),
+                        (float(left), float(top + height)),
+                    ),
+                    operation="erase" if random.random() < 0.4 else "add",
+                    source="prototype" if random.random() < 0.5 else "manual",
+                ),
+            )
+        project.set_completed(slice_index, random.random() < 0.2)
+        project.set_keyframe(slice_index, random.random() < 0.15)
+        project.set_force_empty(slice_index, random.random() < 0.2)
+
+    presence = project.mask_presence(interpolate=interpolate)
+
+    assert presence.dtype == np.bool_
+    assert presence.shape == (project.shape_lps[2],)
+    np.testing.assert_array_equal(
+        presence, project.to_mask(interpolate=interpolate).any(axis=(0, 1))
+    )
+
+
+def test_mask_presence_handles_disjoint_keyframes_with_empty_interpolation() -> None:
+    project = _project()
+    project.add_polygon(0, PolygonAnnotation(points=((1, 1), (1, 1), (1, 1))))
+    project.add_polygon(4, PolygonAnnotation(points=((18, 16), (18, 16), (18, 16))))
+
+    assert project.mask_presence().tolist() == [True, False, False, False, True]
+    np.testing.assert_array_equal(
+        project.mask_presence(), project.to_mask().any((0, 1))
+    )
+
+
+def test_mask_presence_can_be_empty_despite_stored_contours() -> None:
+    project = _project()
+    points = ((2, 2), (8, 2), (5, 8))
+    project.add_polygon(0, PolygonAnnotation(points=points))
+    project.add_polygon(0, PolygonAnnotation(points=points, operation="erase"))
+    project.add_polygon(1, PolygonAnnotation(points=points, operation="erase"))
+    project.add_polygon(2, PolygonAnnotation(points=((-10, -10), (-8, -10), (-9, -8))))
+    project.add_polygon(3, PolygonAnnotation(points=points))
+    project.set_force_empty(3, True)
+    project.set_completed(4, True)
+
+    assert not project.mask_presence().any()
+    assert not project.to_mask().any()
+
+
+def test_mask_presence_keeps_separate_intervals_and_isolated_slices() -> None:
+    project = replace(_project(), shape_lps=(20, 18, 13))
+    polygon = PolygonAnnotation(points=((2, 2), (10, 2), (10, 10), (2, 10)))
+    for slice_index in (0, 4, 6, 8, 12):
+        project.add_polygon(slice_index, polygon)
+    for slice_index in (5, 7):
+        project.set_force_empty(slice_index, True)
+
+    expected = [True] * 5 + [False, True, False] + [True] * 5
+    assert project.mask_presence().tolist() == expected
+
+
+def test_mask_presence_overlapping_keyframes_avoids_distance_and_volume_allocation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project = _project()
+    polygon = PolygonAnnotation(points=((2, 2), (10, 2), (10, 10), (2, 10)))
+    project.add_polygon(0, polygon)
+    project.add_polygon(4, polygon)
+
+    def unexpected_computation(*_args, **_kwargs) -> None:
+        pytest.fail("overlapping keyframes need neither a distance field nor a volume")
+
+    monkeypatch.setattr(AnnotationProject, "_signed_distance", unexpected_computation)
+    monkeypatch.setattr(AnnotationProject, "to_mask", unexpected_computation)
+
+    assert project.mask_presence().tolist() == [True] * 5

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import os
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import TemporaryDirectory, gettempdir
 from typing import Any, Literal
 
 import numpy as np
@@ -36,6 +39,24 @@ def _nifti_safe_spacing(spacing_mm: tuple[float, float, float]) -> tuple[float, 
             serialized = np.nextafter(serialized, np.float32(-np.inf), dtype=np.float32)
         safe.append(float(serialized))
     return tuple(safe)
+
+
+def _ascii_temporary_directory() -> TemporaryDirectory[str]:
+    directories = [Path(gettempdir()), Path.cwd()]
+    if os.name == "nt":
+        directories.append(Path(os.environ.get("SYSTEMROOT", r"C:\Windows")) / "Temp")
+    for directory in directories:
+        try:
+            directory = directory.resolve()
+            if not str(directory).isascii():
+                continue
+            return TemporaryDirectory(prefix="med-image-seg-", dir=directory)
+        except OSError:
+            continue
+    raise OSError(
+        "NIfTI export requires a writable ASCII-only temporary directory; "
+        "set TMPDIR, TEMP, or TMP to an ASCII-only path."
+    )
 
 
 class MedicalVolumeReader:
@@ -161,7 +182,16 @@ class MedicalMaskWriter:
         image.SetSpacing(_nifti_safe_spacing(spacing_mm))
         image.SetOrigin(tuple(float(value) for value in origin_lps_mm))
         image.SetDirection((1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0))
-        sitk.WriteImage(image, str(output), useCompression=True)
+        suffix = ".nii.gz" if output.name.lower().endswith(".nii.gz") else ".nii"
+        with _ascii_temporary_directory() as temporary_directory:
+            temporary_output = Path(temporary_directory) / f"mask{suffix}"
+            sitk.WriteImage(image, str(temporary_output), useCompression=True)
+            with TemporaryDirectory(
+                prefix=".med-image-seg-", dir=output.parent
+            ) as destination_directory:
+                destination = Path(destination_directory) / "mask.tmp"
+                shutil.copyfile(temporary_output, destination)
+                os.replace(destination, output)
         return output
 
 

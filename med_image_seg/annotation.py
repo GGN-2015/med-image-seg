@@ -313,6 +313,34 @@ class AnnotationProject:
         blended = (1.0 - fraction) * left_distance + fraction * right_distance
         return blended >= 0.0
 
+    def mask_presence(self, *, interpolate: bool = True) -> np.ndarray:
+        """Return which slices have nonempty output masks without building a volume."""
+
+        presence = np.zeros(self.shape_lps[2], dtype=bool)
+        keyframes = self.keyframe_indices
+        if not keyframes:
+            return presence
+        left = keyframes[0]
+        left_plane = self._manual_plane(left)
+        presence[left] = left_plane.any()
+        for right in keyframes[1:]:
+            right_plane = self._manual_plane(right)
+            presence[right] = right_plane.any()
+            if interpolate and right > left + 1:
+                if np.any(left_plane & right_plane):
+                    presence[left + 1 : right] = True
+                elif presence[left] or presence[right]:
+                    left_distance = self._signed_distance(left_plane)
+                    right_distance = self._signed_distance(right_plane)
+                    for slice_index in range(left + 1, right):
+                        fraction = (slice_index - left) / (right - left)
+                        blended = (1.0 - fraction) * left_distance
+                        blended += fraction * right_distance
+                        presence[slice_index] = np.any(blended >= 0.0)
+            left = right
+            left_plane = right_plane
+        return presence
+
     def to_mask(self, *, interpolate: bool = True) -> np.ndarray:
         mask = np.zeros(self.shape_lps, dtype=np.uint8)
         for slice_index, annotation in self.slices.items():

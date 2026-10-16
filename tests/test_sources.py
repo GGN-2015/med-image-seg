@@ -2,18 +2,22 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from med_image_seg import ImageCollection, ImageSource, SourceKind
 
 
-def test_nifti_uses_colocated_named_json(tmp_path: Path) -> None:
-    image = tmp_path / "pelvis.nii.gz"
+@pytest.mark.parametrize("suffix", [".nii", ".nii.gz", ".ubd.npz"])
+def test_volume_file_uses_colocated_outputs(tmp_path: Path, suffix: str) -> None:
+    image = tmp_path / f"pelvis{suffix}"
     image.write_bytes(b"nifti-test")
 
     source = ImageSource.from_path(image)
 
-    assert source.kind == SourceKind.NIFTI
+    assert source.kind == (SourceKind.UBD if suffix == ".ubd.npz" else SourceKind.NIFTI)
     assert source.annotation_path == tmp_path / "pelvis.med-image-seg.json"
     assert source.mask_path == tmp_path / "pelvis.med-image-seg-mask.nii.gz"
+    assert source.ubd_mask_path == tmp_path / "pelvis.med-image-seg-mask.ubd.npz"
 
 
 def test_dicom_file_and_directory_share_annotation(tmp_path: Path) -> None:
@@ -26,6 +30,9 @@ def test_dicom_file_and_directory_share_annotation(tmp_path: Path) -> None:
     assert from_file.kind == SourceKind.DICOM
     assert from_file.path == tmp_path
     assert from_file.annotation_path == tmp_path / ".med-image-seg.json"
+    assert from_file.mask_path == tmp_path / "med-image-seg-mask.nii.gz"
+    assert from_file.ubd_mask_path == tmp_path / "med-image-seg-mask.ubd.npz"
+    assert from_file.ubd_mask_path == from_directory.ubd_mask_path
     assert from_file.fingerprint == from_directory.fingerprint
 
 
@@ -39,7 +46,9 @@ def test_dicom_outputs_do_not_change_source_fingerprint(tmp_path: Path) -> None:
     before.annotation_path.write_text("{}", encoding="utf-8")
     Path(f"{before.annotation_path}.bak").write_text("{}", encoding="utf-8")
     before.mask_path.write_bytes(b"generated-mask")
+    before.ubd_mask_path.write_bytes(b"generated-ubd-mask")
     (series / "other-output.nii.gz").write_bytes(b"other-generated-mask")
+    (series / "other-output.ubd.npz").write_bytes(b"other-generated-ubd-mask")
     (series / "metadata.json").write_text("{}", encoding="utf-8")
     after = ImageSource.from_path(series)
 
