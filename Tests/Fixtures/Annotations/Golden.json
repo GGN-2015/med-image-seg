@@ -1,0 +1,3398 @@
+[
+  {
+    "seed": 0,
+    "mask": "8aad4fde0e7dd194963ca8d065750ef98f5ab8fbcde290441451f403a0f083e9",
+    "presence": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ],
+    "payload": {
+      "schema_version": 4,
+      "image_id": "GOLDEN",
+      "source_fingerprint": "fixed",
+      "shape_lps": [
+        20,
+        18,
+        13
+      ],
+      "spacing_lps_mm": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "origin_lps_mm": [
+        10.0,
+        -3.0,
+        5.0
+      ],
+      "edit_counter": 9,
+      "metadata": {},
+      "slices": {
+        "1": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  8.0,
+                  6.0
+                ],
+                [
+                  13.0,
+                  6.0
+                ],
+                [
+                  13.0,
+                  11.0
+                ],
+                [
+                  8.0,
+                  11.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 1
+            },
+            {
+              "points": [
+                [
+                  5.0,
+                  3.0
+                ],
+                [
+                  10.0,
+                  3.0
+                ],
+                [
+                  10.0,
+                  8.0
+                ],
+                [
+                  5.0,
+                  8.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 2
+            },
+            {
+              "points": [
+                [
+                  3.0,
+                  1.0
+                ],
+                [
+                  8.0,
+                  1.0
+                ],
+                [
+                  8.0,
+                  6.0
+                ],
+                [
+                  3.0,
+                  6.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 3
+            }
+          ]
+        },
+        "5": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  1.0,
+                  1.0
+                ],
+                [
+                  6.0,
+                  1.0
+                ],
+                [
+                  6.0,
+                  6.0
+                ],
+                [
+                  1.0,
+                  6.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 4
+            },
+            {
+              "points": [
+                [
+                  2.0,
+                  8.0
+                ],
+                [
+                  7.0,
+                  8.0
+                ],
+                [
+                  7.0,
+                  13.0
+                ],
+                [
+                  2.0,
+                  13.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 5
+            },
+            {
+              "points": [
+                [
+                  6.0,
+                  9.0
+                ],
+                [
+                  11.0,
+                  9.0
+                ],
+                [
+                  11.0,
+                  14.0
+                ],
+                [
+                  6.0,
+                  14.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 6
+            }
+          ]
+        },
+        "7": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": true,
+          "polygons": []
+        },
+        "9": {
+          "completed": true,
+          "keyframe": true,
+          "force_empty": false,
+          "polygons": []
+        },
+        "11": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  5.0,
+                  6.0
+                ],
+                [
+                  10.0,
+                  6.0
+                ],
+                [
+                  10.0,
+                  11.0
+                ],
+                [
+                  5.0,
+                  11.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 7
+            },
+            {
+              "points": [
+                [
+                  9.0,
+                  7.0
+                ],
+                [
+                  14.0,
+                  7.0
+                ],
+                [
+                  14.0,
+                  12.0
+                ],
+                [
+                  9.0,
+                  12.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 8
+            },
+            {
+              "points": [
+                [
+                  6.0,
+                  5.0
+                ],
+                [
+                  11.0,
+                  5.0
+                ],
+                [
+                  11.0,
+                  10.0
+                ],
+                [
+                  6.0,
+                  10.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 9
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "seed": 1,
+    "mask": "4489e04fef9b1327c7dc1ba6753abe2dc7fcc5b5b6cf38562c721258e06a89f1",
+    "presence": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ],
+    "payload": {
+      "schema_version": 4,
+      "image_id": "GOLDEN",
+      "source_fingerprint": "fixed",
+      "shape_lps": [
+        20,
+        18,
+        13
+      ],
+      "spacing_lps_mm": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "origin_lps_mm": [
+        10.0,
+        -3.0,
+        5.0
+      ],
+      "edit_counter": 9,
+      "metadata": {},
+      "slices": {
+        "1": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  5.0,
+                  5.0
+                ],
+                [
+                  10.0,
+                  5.0
+                ],
+                [
+                  10.0,
+                  10.0
+                ],
+                [
+                  5.0,
+                  10.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 1
+            },
+            {
+              "points": [
+                [
+                  7.0,
+                  9.0
+                ],
+                [
+                  12.0,
+                  9.0
+                ],
+                [
+                  12.0,
+                  14.0
+                ],
+                [
+                  7.0,
+                  14.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 2
+            },
+            {
+              "points": [
+                [
+                  1.0,
+                  2.0
+                ],
+                [
+                  6.0,
+                  2.0
+                ],
+                [
+                  6.0,
+                  7.0
+                ],
+                [
+                  1.0,
+                  7.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 3
+            }
+          ]
+        },
+        "5": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  8.0,
+                  9.0
+                ],
+                [
+                  13.0,
+                  9.0
+                ],
+                [
+                  13.0,
+                  14.0
+                ],
+                [
+                  8.0,
+                  14.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 4
+            },
+            {
+              "points": [
+                [
+                  3.0,
+                  3.0
+                ],
+                [
+                  8.0,
+                  3.0
+                ],
+                [
+                  8.0,
+                  8.0
+                ],
+                [
+                  3.0,
+                  8.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 5
+            },
+            {
+              "points": [
+                [
+                  8.0,
+                  4.0
+                ],
+                [
+                  13.0,
+                  4.0
+                ],
+                [
+                  13.0,
+                  9.0
+                ],
+                [
+                  8.0,
+                  9.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 6
+            }
+          ]
+        },
+        "7": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": true,
+          "polygons": []
+        },
+        "9": {
+          "completed": true,
+          "keyframe": true,
+          "force_empty": false,
+          "polygons": []
+        },
+        "11": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  3.0,
+                  8.0
+                ],
+                [
+                  8.0,
+                  8.0
+                ],
+                [
+                  8.0,
+                  13.0
+                ],
+                [
+                  3.0,
+                  13.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 7
+            },
+            {
+              "points": [
+                [
+                  3.0,
+                  4.0
+                ],
+                [
+                  8.0,
+                  4.0
+                ],
+                [
+                  8.0,
+                  9.0
+                ],
+                [
+                  3.0,
+                  9.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 8
+            },
+            {
+              "points": [
+                [
+                  6.0,
+                  5.0
+                ],
+                [
+                  11.0,
+                  5.0
+                ],
+                [
+                  11.0,
+                  10.0
+                ],
+                [
+                  6.0,
+                  10.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 9
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "seed": 2,
+    "mask": "8b9e1bc1f7a6ce45a1455c5ed3a8062eb16d9eca4c398de0cbf859ac848f1af7",
+    "presence": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ],
+    "payload": {
+      "schema_version": 4,
+      "image_id": "GOLDEN",
+      "source_fingerprint": "fixed",
+      "shape_lps": [
+        20,
+        18,
+        13
+      ],
+      "spacing_lps_mm": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "origin_lps_mm": [
+        10.0,
+        -3.0,
+        5.0
+      ],
+      "edit_counter": 9,
+      "metadata": {},
+      "slices": {
+        "1": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  8.0,
+                  3.0
+                ],
+                [
+                  13.0,
+                  3.0
+                ],
+                [
+                  13.0,
+                  8.0
+                ],
+                [
+                  8.0,
+                  8.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 1
+            },
+            {
+              "points": [
+                [
+                  1.0,
+                  3.0
+                ],
+                [
+                  6.0,
+                  3.0
+                ],
+                [
+                  6.0,
+                  8.0
+                ],
+                [
+                  1.0,
+                  8.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 2
+            },
+            {
+              "points": [
+                [
+                  4.0,
+                  8.0
+                ],
+                [
+                  9.0,
+                  8.0
+                ],
+                [
+                  9.0,
+                  13.0
+                ],
+                [
+                  4.0,
+                  13.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 3
+            }
+          ]
+        },
+        "5": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  5.0,
+                  1.0
+                ],
+                [
+                  10.0,
+                  1.0
+                ],
+                [
+                  10.0,
+                  6.0
+                ],
+                [
+                  5.0,
+                  6.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 4
+            },
+            {
+              "points": [
+                [
+                  4.0,
+                  6.0
+                ],
+                [
+                  9.0,
+                  6.0
+                ],
+                [
+                  9.0,
+                  11.0
+                ],
+                [
+                  4.0,
+                  11.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 5
+            },
+            {
+              "points": [
+                [
+                  8.0,
+                  7.0
+                ],
+                [
+                  13.0,
+                  7.0
+                ],
+                [
+                  13.0,
+                  12.0
+                ],
+                [
+                  8.0,
+                  12.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 6
+            }
+          ]
+        },
+        "7": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": true,
+          "polygons": []
+        },
+        "9": {
+          "completed": true,
+          "keyframe": true,
+          "force_empty": false,
+          "polygons": []
+        },
+        "11": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  9.0,
+                  2.0
+                ],
+                [
+                  14.0,
+                  2.0
+                ],
+                [
+                  14.0,
+                  7.0
+                ],
+                [
+                  9.0,
+                  7.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 7
+            },
+            {
+              "points": [
+                [
+                  8.0,
+                  1.0
+                ],
+                [
+                  13.0,
+                  1.0
+                ],
+                [
+                  13.0,
+                  6.0
+                ],
+                [
+                  8.0,
+                  6.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 8
+            },
+            {
+              "points": [
+                [
+                  6.0,
+                  3.0
+                ],
+                [
+                  11.0,
+                  3.0
+                ],
+                [
+                  11.0,
+                  8.0
+                ],
+                [
+                  6.0,
+                  8.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 9
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "seed": 3,
+    "mask": "214bbbcb241bf7bc78401ba1aeee7863e6346fb1dc56d0bbc0862fcafd0c14b5",
+    "presence": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ],
+    "payload": {
+      "schema_version": 4,
+      "image_id": "GOLDEN",
+      "source_fingerprint": "fixed",
+      "shape_lps": [
+        20,
+        18,
+        13
+      ],
+      "spacing_lps_mm": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "origin_lps_mm": [
+        10.0,
+        -3.0,
+        5.0
+      ],
+      "edit_counter": 9,
+      "metadata": {},
+      "slices": {
+        "1": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  8.0,
+                  1.0
+                ],
+                [
+                  13.0,
+                  1.0
+                ],
+                [
+                  13.0,
+                  6.0
+                ],
+                [
+                  8.0,
+                  6.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 1
+            },
+            {
+              "points": [
+                [
+                  2.0,
+                  3.0
+                ],
+                [
+                  7.0,
+                  3.0
+                ],
+                [
+                  7.0,
+                  8.0
+                ],
+                [
+                  2.0,
+                  8.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 2
+            },
+            {
+              "points": [
+                [
+                  2.0,
+                  8.0
+                ],
+                [
+                  7.0,
+                  8.0
+                ],
+                [
+                  7.0,
+                  13.0
+                ],
+                [
+                  2.0,
+                  13.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 3
+            }
+          ]
+        },
+        "5": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  8.0,
+                  6.0
+                ],
+                [
+                  13.0,
+                  6.0
+                ],
+                [
+                  13.0,
+                  11.0
+                ],
+                [
+                  8.0,
+                  11.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 4
+            },
+            {
+              "points": [
+                [
+                  1.0,
+                  1.0
+                ],
+                [
+                  6.0,
+                  1.0
+                ],
+                [
+                  6.0,
+                  6.0
+                ],
+                [
+                  1.0,
+                  6.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 5
+            },
+            {
+              "points": [
+                [
+                  3.0,
+                  4.0
+                ],
+                [
+                  8.0,
+                  4.0
+                ],
+                [
+                  8.0,
+                  9.0
+                ],
+                [
+                  3.0,
+                  9.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 6
+            }
+          ]
+        },
+        "7": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": true,
+          "polygons": []
+        },
+        "9": {
+          "completed": true,
+          "keyframe": true,
+          "force_empty": false,
+          "polygons": []
+        },
+        "11": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  6.0,
+                  5.0
+                ],
+                [
+                  11.0,
+                  5.0
+                ],
+                [
+                  11.0,
+                  10.0
+                ],
+                [
+                  6.0,
+                  10.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 7
+            },
+            {
+              "points": [
+                [
+                  3.0,
+                  2.0
+                ],
+                [
+                  8.0,
+                  2.0
+                ],
+                [
+                  8.0,
+                  7.0
+                ],
+                [
+                  3.0,
+                  7.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 8
+            },
+            {
+              "points": [
+                [
+                  7.0,
+                  7.0
+                ],
+                [
+                  12.0,
+                  7.0
+                ],
+                [
+                  12.0,
+                  12.0
+                ],
+                [
+                  7.0,
+                  12.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 9
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "seed": 4,
+    "mask": "849902ff35ded9dad69b730cba256122c503b482bf0ac63b1ad72d0c354a380c",
+    "presence": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ],
+    "payload": {
+      "schema_version": 4,
+      "image_id": "GOLDEN",
+      "source_fingerprint": "fixed",
+      "shape_lps": [
+        20,
+        18,
+        13
+      ],
+      "spacing_lps_mm": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "origin_lps_mm": [
+        10.0,
+        -3.0,
+        5.0
+      ],
+      "edit_counter": 9,
+      "metadata": {},
+      "slices": {
+        "1": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  7.0,
+                  9.0
+                ],
+                [
+                  12.0,
+                  9.0
+                ],
+                [
+                  12.0,
+                  14.0
+                ],
+                [
+                  7.0,
+                  14.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 1
+            },
+            {
+              "points": [
+                [
+                  8.0,
+                  5.0
+                ],
+                [
+                  13.0,
+                  5.0
+                ],
+                [
+                  13.0,
+                  10.0
+                ],
+                [
+                  8.0,
+                  10.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 2
+            },
+            {
+              "points": [
+                [
+                  9.0,
+                  9.0
+                ],
+                [
+                  14.0,
+                  9.0
+                ],
+                [
+                  14.0,
+                  14.0
+                ],
+                [
+                  9.0,
+                  14.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 3
+            }
+          ]
+        },
+        "5": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  9.0,
+                  1.0
+                ],
+                [
+                  14.0,
+                  1.0
+                ],
+                [
+                  14.0,
+                  6.0
+                ],
+                [
+                  9.0,
+                  6.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 4
+            },
+            {
+              "points": [
+                [
+                  5.0,
+                  6.0
+                ],
+                [
+                  10.0,
+                  6.0
+                ],
+                [
+                  10.0,
+                  11.0
+                ],
+                [
+                  5.0,
+                  11.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 5
+            },
+            {
+              "points": [
+                [
+                  3.0,
+                  4.0
+                ],
+                [
+                  8.0,
+                  4.0
+                ],
+                [
+                  8.0,
+                  9.0
+                ],
+                [
+                  3.0,
+                  9.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 6
+            }
+          ]
+        },
+        "7": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": true,
+          "polygons": []
+        },
+        "9": {
+          "completed": true,
+          "keyframe": true,
+          "force_empty": false,
+          "polygons": []
+        },
+        "11": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  6.0,
+                  8.0
+                ],
+                [
+                  11.0,
+                  8.0
+                ],
+                [
+                  11.0,
+                  13.0
+                ],
+                [
+                  6.0,
+                  13.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 7
+            },
+            {
+              "points": [
+                [
+                  6.0,
+                  2.0
+                ],
+                [
+                  11.0,
+                  2.0
+                ],
+                [
+                  11.0,
+                  7.0
+                ],
+                [
+                  6.0,
+                  7.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 8
+            },
+            {
+              "points": [
+                [
+                  7.0,
+                  8.0
+                ],
+                [
+                  12.0,
+                  8.0
+                ],
+                [
+                  12.0,
+                  13.0
+                ],
+                [
+                  7.0,
+                  13.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 9
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "seed": 5,
+    "mask": "7fa42e82992070375f83b595cc6f97a52f179ce0784e488d2edcb97cba9455bf",
+    "presence": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ],
+    "payload": {
+      "schema_version": 4,
+      "image_id": "GOLDEN",
+      "source_fingerprint": "fixed",
+      "shape_lps": [
+        20,
+        18,
+        13
+      ],
+      "spacing_lps_mm": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "origin_lps_mm": [
+        10.0,
+        -3.0,
+        5.0
+      ],
+      "edit_counter": 9,
+      "metadata": {},
+      "slices": {
+        "1": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  7.0,
+                  8.0
+                ],
+                [
+                  12.0,
+                  8.0
+                ],
+                [
+                  12.0,
+                  13.0
+                ],
+                [
+                  7.0,
+                  13.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 1
+            },
+            {
+              "points": [
+                [
+                  1.0,
+                  8.0
+                ],
+                [
+                  6.0,
+                  8.0
+                ],
+                [
+                  6.0,
+                  13.0
+                ],
+                [
+                  1.0,
+                  13.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 2
+            },
+            {
+              "points": [
+                [
+                  5.0,
+                  5.0
+                ],
+                [
+                  10.0,
+                  5.0
+                ],
+                [
+                  10.0,
+                  10.0
+                ],
+                [
+                  5.0,
+                  10.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 3
+            }
+          ]
+        },
+        "5": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  6.0,
+                  3.0
+                ],
+                [
+                  11.0,
+                  3.0
+                ],
+                [
+                  11.0,
+                  8.0
+                ],
+                [
+                  6.0,
+                  8.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 4
+            },
+            {
+              "points": [
+                [
+                  9.0,
+                  1.0
+                ],
+                [
+                  14.0,
+                  1.0
+                ],
+                [
+                  14.0,
+                  6.0
+                ],
+                [
+                  9.0,
+                  6.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 5
+            },
+            {
+              "points": [
+                [
+                  3.0,
+                  4.0
+                ],
+                [
+                  8.0,
+                  4.0
+                ],
+                [
+                  8.0,
+                  9.0
+                ],
+                [
+                  3.0,
+                  9.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 6
+            }
+          ]
+        },
+        "7": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": true,
+          "polygons": []
+        },
+        "9": {
+          "completed": true,
+          "keyframe": true,
+          "force_empty": false,
+          "polygons": []
+        },
+        "11": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  6.0,
+                  4.0
+                ],
+                [
+                  11.0,
+                  4.0
+                ],
+                [
+                  11.0,
+                  9.0
+                ],
+                [
+                  6.0,
+                  9.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 7
+            },
+            {
+              "points": [
+                [
+                  2.0,
+                  1.0
+                ],
+                [
+                  7.0,
+                  1.0
+                ],
+                [
+                  7.0,
+                  6.0
+                ],
+                [
+                  2.0,
+                  6.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 8
+            },
+            {
+              "points": [
+                [
+                  1.0,
+                  1.0
+                ],
+                [
+                  6.0,
+                  1.0
+                ],
+                [
+                  6.0,
+                  6.0
+                ],
+                [
+                  1.0,
+                  6.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 9
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "seed": 6,
+    "mask": "7bb7d0631d96e19274c49f6b77badb24b4e0ef7f348a1f645e51f39307f3969e",
+    "presence": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ],
+    "payload": {
+      "schema_version": 4,
+      "image_id": "GOLDEN",
+      "source_fingerprint": "fixed",
+      "shape_lps": [
+        20,
+        18,
+        13
+      ],
+      "spacing_lps_mm": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "origin_lps_mm": [
+        10.0,
+        -3.0,
+        5.0
+      ],
+      "edit_counter": 9,
+      "metadata": {},
+      "slices": {
+        "1": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  5.0,
+                  5.0
+                ],
+                [
+                  10.0,
+                  5.0
+                ],
+                [
+                  10.0,
+                  10.0
+                ],
+                [
+                  5.0,
+                  10.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 1
+            },
+            {
+              "points": [
+                [
+                  5.0,
+                  4.0
+                ],
+                [
+                  10.0,
+                  4.0
+                ],
+                [
+                  10.0,
+                  9.0
+                ],
+                [
+                  5.0,
+                  9.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 2
+            },
+            {
+              "points": [
+                [
+                  9.0,
+                  4.0
+                ],
+                [
+                  14.0,
+                  4.0
+                ],
+                [
+                  14.0,
+                  9.0
+                ],
+                [
+                  9.0,
+                  9.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 3
+            }
+          ]
+        },
+        "5": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  6.0,
+                  4.0
+                ],
+                [
+                  11.0,
+                  4.0
+                ],
+                [
+                  11.0,
+                  9.0
+                ],
+                [
+                  6.0,
+                  9.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 4
+            },
+            {
+              "points": [
+                [
+                  5.0,
+                  9.0
+                ],
+                [
+                  10.0,
+                  9.0
+                ],
+                [
+                  10.0,
+                  14.0
+                ],
+                [
+                  5.0,
+                  14.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 5
+            },
+            {
+              "points": [
+                [
+                  2.0,
+                  6.0
+                ],
+                [
+                  7.0,
+                  6.0
+                ],
+                [
+                  7.0,
+                  11.0
+                ],
+                [
+                  2.0,
+                  11.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 6
+            }
+          ]
+        },
+        "7": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": true,
+          "polygons": []
+        },
+        "9": {
+          "completed": true,
+          "keyframe": true,
+          "force_empty": false,
+          "polygons": []
+        },
+        "11": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  4.0,
+                  7.0
+                ],
+                [
+                  9.0,
+                  7.0
+                ],
+                [
+                  9.0,
+                  12.0
+                ],
+                [
+                  4.0,
+                  12.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 7
+            },
+            {
+              "points": [
+                [
+                  7.0,
+                  3.0
+                ],
+                [
+                  12.0,
+                  3.0
+                ],
+                [
+                  12.0,
+                  8.0
+                ],
+                [
+                  7.0,
+                  8.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 8
+            },
+            {
+              "points": [
+                [
+                  7.0,
+                  7.0
+                ],
+                [
+                  12.0,
+                  7.0
+                ],
+                [
+                  12.0,
+                  12.0
+                ],
+                [
+                  7.0,
+                  12.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 9
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "seed": 7,
+    "mask": "6adbb0b27da1892ccaf0480d9b022df641e0a12e8458e412af7b1d56b5d9ee0d",
+    "presence": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ],
+    "payload": {
+      "schema_version": 4,
+      "image_id": "GOLDEN",
+      "source_fingerprint": "fixed",
+      "shape_lps": [
+        20,
+        18,
+        13
+      ],
+      "spacing_lps_mm": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "origin_lps_mm": [
+        10.0,
+        -3.0,
+        5.0
+      ],
+      "edit_counter": 9,
+      "metadata": {},
+      "slices": {
+        "1": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  9.0,
+                  6.0
+                ],
+                [
+                  14.0,
+                  6.0
+                ],
+                [
+                  14.0,
+                  11.0
+                ],
+                [
+                  9.0,
+                  11.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 1
+            },
+            {
+              "points": [
+                [
+                  7.0,
+                  9.0
+                ],
+                [
+                  12.0,
+                  9.0
+                ],
+                [
+                  12.0,
+                  14.0
+                ],
+                [
+                  7.0,
+                  14.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 2
+            },
+            {
+              "points": [
+                [
+                  6.0,
+                  7.0
+                ],
+                [
+                  11.0,
+                  7.0
+                ],
+                [
+                  11.0,
+                  12.0
+                ],
+                [
+                  6.0,
+                  12.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 3
+            }
+          ]
+        },
+        "5": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  8.0,
+                  3.0
+                ],
+                [
+                  13.0,
+                  3.0
+                ],
+                [
+                  13.0,
+                  8.0
+                ],
+                [
+                  8.0,
+                  8.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 4
+            },
+            {
+              "points": [
+                [
+                  1.0,
+                  3.0
+                ],
+                [
+                  6.0,
+                  3.0
+                ],
+                [
+                  6.0,
+                  8.0
+                ],
+                [
+                  1.0,
+                  8.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 5
+            },
+            {
+              "points": [
+                [
+                  3.0,
+                  8.0
+                ],
+                [
+                  8.0,
+                  8.0
+                ],
+                [
+                  8.0,
+                  13.0
+                ],
+                [
+                  3.0,
+                  13.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 6
+            }
+          ]
+        },
+        "7": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": true,
+          "polygons": []
+        },
+        "9": {
+          "completed": true,
+          "keyframe": true,
+          "force_empty": false,
+          "polygons": []
+        },
+        "11": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  9.0,
+                  1.0
+                ],
+                [
+                  14.0,
+                  1.0
+                ],
+                [
+                  14.0,
+                  6.0
+                ],
+                [
+                  9.0,
+                  6.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 7
+            },
+            {
+              "points": [
+                [
+                  5.0,
+                  8.0
+                ],
+                [
+                  10.0,
+                  8.0
+                ],
+                [
+                  10.0,
+                  13.0
+                ],
+                [
+                  5.0,
+                  13.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 8
+            },
+            {
+              "points": [
+                [
+                  2.0,
+                  8.0
+                ],
+                [
+                  7.0,
+                  8.0
+                ],
+                [
+                  7.0,
+                  13.0
+                ],
+                [
+                  2.0,
+                  13.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 9
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "seed": 8,
+    "mask": "59b5c16dc2ef993f6375b665203a88d9da3e98c9356c6ce77bae9443e04a2cf8",
+    "presence": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ],
+    "payload": {
+      "schema_version": 4,
+      "image_id": "GOLDEN",
+      "source_fingerprint": "fixed",
+      "shape_lps": [
+        20,
+        18,
+        13
+      ],
+      "spacing_lps_mm": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "origin_lps_mm": [
+        10.0,
+        -3.0,
+        5.0
+      ],
+      "edit_counter": 9,
+      "metadata": {},
+      "slices": {
+        "1": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  7.0,
+                  3.0
+                ],
+                [
+                  12.0,
+                  3.0
+                ],
+                [
+                  12.0,
+                  8.0
+                ],
+                [
+                  7.0,
+                  8.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 1
+            },
+            {
+              "points": [
+                [
+                  3.0,
+                  9.0
+                ],
+                [
+                  8.0,
+                  9.0
+                ],
+                [
+                  8.0,
+                  14.0
+                ],
+                [
+                  3.0,
+                  14.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 2
+            },
+            {
+              "points": [
+                [
+                  2.0,
+                  3.0
+                ],
+                [
+                  7.0,
+                  3.0
+                ],
+                [
+                  7.0,
+                  8.0
+                ],
+                [
+                  2.0,
+                  8.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 3
+            }
+          ]
+        },
+        "5": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  6.0,
+                  8.0
+                ],
+                [
+                  11.0,
+                  8.0
+                ],
+                [
+                  11.0,
+                  13.0
+                ],
+                [
+                  6.0,
+                  13.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 4
+            },
+            {
+              "points": [
+                [
+                  6.0,
+                  8.0
+                ],
+                [
+                  11.0,
+                  8.0
+                ],
+                [
+                  11.0,
+                  13.0
+                ],
+                [
+                  6.0,
+                  13.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 5
+            },
+            {
+              "points": [
+                [
+                  1.0,
+                  4.0
+                ],
+                [
+                  6.0,
+                  4.0
+                ],
+                [
+                  6.0,
+                  9.0
+                ],
+                [
+                  1.0,
+                  9.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 6
+            }
+          ]
+        },
+        "7": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": true,
+          "polygons": []
+        },
+        "9": {
+          "completed": true,
+          "keyframe": true,
+          "force_empty": false,
+          "polygons": []
+        },
+        "11": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  6.0,
+                  4.0
+                ],
+                [
+                  11.0,
+                  4.0
+                ],
+                [
+                  11.0,
+                  9.0
+                ],
+                [
+                  6.0,
+                  9.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 7
+            },
+            {
+              "points": [
+                [
+                  4.0,
+                  4.0
+                ],
+                [
+                  9.0,
+                  4.0
+                ],
+                [
+                  9.0,
+                  9.0
+                ],
+                [
+                  4.0,
+                  9.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 8
+            },
+            {
+              "points": [
+                [
+                  1.0,
+                  1.0
+                ],
+                [
+                  6.0,
+                  1.0
+                ],
+                [
+                  6.0,
+                  6.0
+                ],
+                [
+                  1.0,
+                  6.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 9
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "seed": 9,
+    "mask": "704a502b3af4414e9bb29a63995056d3df7c7c2c5aadd0a9fac5b436e9543b8d",
+    "presence": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ],
+    "payload": {
+      "schema_version": 4,
+      "image_id": "GOLDEN",
+      "source_fingerprint": "fixed",
+      "shape_lps": [
+        20,
+        18,
+        13
+      ],
+      "spacing_lps_mm": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "origin_lps_mm": [
+        10.0,
+        -3.0,
+        5.0
+      ],
+      "edit_counter": 9,
+      "metadata": {},
+      "slices": {
+        "1": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  4.0,
+                  8.0
+                ],
+                [
+                  9.0,
+                  8.0
+                ],
+                [
+                  9.0,
+                  13.0
+                ],
+                [
+                  4.0,
+                  13.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 1
+            },
+            {
+              "points": [
+                [
+                  9.0,
+                  3.0
+                ],
+                [
+                  14.0,
+                  3.0
+                ],
+                [
+                  14.0,
+                  8.0
+                ],
+                [
+                  9.0,
+                  8.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 2
+            },
+            {
+              "points": [
+                [
+                  2.0,
+                  6.0
+                ],
+                [
+                  7.0,
+                  6.0
+                ],
+                [
+                  7.0,
+                  11.0
+                ],
+                [
+                  2.0,
+                  11.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 3
+            }
+          ]
+        },
+        "5": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  7.0,
+                  7.0
+                ],
+                [
+                  12.0,
+                  7.0
+                ],
+                [
+                  12.0,
+                  12.0
+                ],
+                [
+                  7.0,
+                  12.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 4
+            },
+            {
+              "points": [
+                [
+                  6.0,
+                  7.0
+                ],
+                [
+                  11.0,
+                  7.0
+                ],
+                [
+                  11.0,
+                  12.0
+                ],
+                [
+                  6.0,
+                  12.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 5
+            },
+            {
+              "points": [
+                [
+                  9.0,
+                  9.0
+                ],
+                [
+                  14.0,
+                  9.0
+                ],
+                [
+                  14.0,
+                  14.0
+                ],
+                [
+                  9.0,
+                  14.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 6
+            }
+          ]
+        },
+        "7": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": true,
+          "polygons": []
+        },
+        "9": {
+          "completed": true,
+          "keyframe": true,
+          "force_empty": false,
+          "polygons": []
+        },
+        "11": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  9.0,
+                  8.0
+                ],
+                [
+                  14.0,
+                  8.0
+                ],
+                [
+                  14.0,
+                  13.0
+                ],
+                [
+                  9.0,
+                  13.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 7
+            },
+            {
+              "points": [
+                [
+                  7.0,
+                  9.0
+                ],
+                [
+                  12.0,
+                  9.0
+                ],
+                [
+                  12.0,
+                  14.0
+                ],
+                [
+                  7.0,
+                  14.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 8
+            },
+            {
+              "points": [
+                [
+                  1.0,
+                  1.0
+                ],
+                [
+                  6.0,
+                  1.0
+                ],
+                [
+                  6.0,
+                  6.0
+                ],
+                [
+                  1.0,
+                  6.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 9
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "seed": 10,
+    "mask": "417b1f00be05ea5445fdfc9e231da0c38630cdf7b2a1e47440f36f239149b301",
+    "presence": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ],
+    "payload": {
+      "schema_version": 4,
+      "image_id": "GOLDEN",
+      "source_fingerprint": "fixed",
+      "shape_lps": [
+        20,
+        18,
+        13
+      ],
+      "spacing_lps_mm": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "origin_lps_mm": [
+        10.0,
+        -3.0,
+        5.0
+      ],
+      "edit_counter": 9,
+      "metadata": {},
+      "slices": {
+        "1": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  7.0,
+                  9.0
+                ],
+                [
+                  12.0,
+                  9.0
+                ],
+                [
+                  12.0,
+                  14.0
+                ],
+                [
+                  7.0,
+                  14.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 1
+            },
+            {
+              "points": [
+                [
+                  3.0,
+                  2.0
+                ],
+                [
+                  8.0,
+                  2.0
+                ],
+                [
+                  8.0,
+                  7.0
+                ],
+                [
+                  3.0,
+                  7.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 2
+            },
+            {
+              "points": [
+                [
+                  8.0,
+                  8.0
+                ],
+                [
+                  13.0,
+                  8.0
+                ],
+                [
+                  13.0,
+                  13.0
+                ],
+                [
+                  8.0,
+                  13.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 3
+            }
+          ]
+        },
+        "5": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  5.0,
+                  2.0
+                ],
+                [
+                  10.0,
+                  2.0
+                ],
+                [
+                  10.0,
+                  7.0
+                ],
+                [
+                  5.0,
+                  7.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 4
+            },
+            {
+              "points": [
+                [
+                  8.0,
+                  5.0
+                ],
+                [
+                  13.0,
+                  5.0
+                ],
+                [
+                  13.0,
+                  10.0
+                ],
+                [
+                  8.0,
+                  10.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 5
+            },
+            {
+              "points": [
+                [
+                  2.0,
+                  2.0
+                ],
+                [
+                  7.0,
+                  2.0
+                ],
+                [
+                  7.0,
+                  7.0
+                ],
+                [
+                  2.0,
+                  7.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 6
+            }
+          ]
+        },
+        "7": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": true,
+          "polygons": []
+        },
+        "9": {
+          "completed": true,
+          "keyframe": true,
+          "force_empty": false,
+          "polygons": []
+        },
+        "11": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  4.0,
+                  7.0
+                ],
+                [
+                  9.0,
+                  7.0
+                ],
+                [
+                  9.0,
+                  12.0
+                ],
+                [
+                  4.0,
+                  12.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 7
+            },
+            {
+              "points": [
+                [
+                  4.0,
+                  8.0
+                ],
+                [
+                  9.0,
+                  8.0
+                ],
+                [
+                  9.0,
+                  13.0
+                ],
+                [
+                  4.0,
+                  13.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 8
+            },
+            {
+              "points": [
+                [
+                  1.0,
+                  4.0
+                ],
+                [
+                  6.0,
+                  4.0
+                ],
+                [
+                  6.0,
+                  9.0
+                ],
+                [
+                  1.0,
+                  9.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 9
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "seed": 11,
+    "mask": "ad5140a99db52f95dbd31cc262fde329e3032ee56c6e94a9c02a3b131b89e1c0",
+    "presence": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ],
+    "payload": {
+      "schema_version": 4,
+      "image_id": "GOLDEN",
+      "source_fingerprint": "fixed",
+      "shape_lps": [
+        20,
+        18,
+        13
+      ],
+      "spacing_lps_mm": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "origin_lps_mm": [
+        10.0,
+        -3.0,
+        5.0
+      ],
+      "edit_counter": 9,
+      "metadata": {},
+      "slices": {
+        "1": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  2.0,
+                  2.0
+                ],
+                [
+                  7.0,
+                  2.0
+                ],
+                [
+                  7.0,
+                  7.0
+                ],
+                [
+                  2.0,
+                  7.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 1
+            },
+            {
+              "points": [
+                [
+                  8.0,
+                  5.0
+                ],
+                [
+                  13.0,
+                  5.0
+                ],
+                [
+                  13.0,
+                  10.0
+                ],
+                [
+                  8.0,
+                  10.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 2
+            },
+            {
+              "points": [
+                [
+                  6.0,
+                  6.0
+                ],
+                [
+                  11.0,
+                  6.0
+                ],
+                [
+                  11.0,
+                  11.0
+                ],
+                [
+                  6.0,
+                  11.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 3
+            }
+          ]
+        },
+        "5": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  7.0,
+                  1.0
+                ],
+                [
+                  12.0,
+                  1.0
+                ],
+                [
+                  12.0,
+                  6.0
+                ],
+                [
+                  7.0,
+                  6.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 4
+            },
+            {
+              "points": [
+                [
+                  5.0,
+                  2.0
+                ],
+                [
+                  10.0,
+                  2.0
+                ],
+                [
+                  10.0,
+                  7.0
+                ],
+                [
+                  5.0,
+                  7.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 5
+            },
+            {
+              "points": [
+                [
+                  4.0,
+                  9.0
+                ],
+                [
+                  9.0,
+                  9.0
+                ],
+                [
+                  9.0,
+                  14.0
+                ],
+                [
+                  4.0,
+                  14.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 6
+            }
+          ]
+        },
+        "7": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": true,
+          "polygons": []
+        },
+        "9": {
+          "completed": true,
+          "keyframe": true,
+          "force_empty": false,
+          "polygons": []
+        },
+        "11": {
+          "completed": false,
+          "keyframe": false,
+          "force_empty": false,
+          "polygons": [
+            {
+              "points": [
+                [
+                  5.0,
+                  1.0
+                ],
+                [
+                  10.0,
+                  1.0
+                ],
+                [
+                  10.0,
+                  6.0
+                ],
+                [
+                  5.0,
+                  6.0
+                ]
+              ],
+              "operation": "add",
+              "source": "manual",
+              "edit_order": 7
+            },
+            {
+              "points": [
+                [
+                  5.0,
+                  2.0
+                ],
+                [
+                  10.0,
+                  2.0
+                ],
+                [
+                  10.0,
+                  7.0
+                ],
+                [
+                  5.0,
+                  7.0
+                ]
+              ],
+              "operation": "add",
+              "source": "prototype",
+              "edit_order": 8
+            },
+            {
+              "points": [
+                [
+                  7.0,
+                  9.0
+                ],
+                [
+                  12.0,
+                  9.0
+                ],
+                [
+                  12.0,
+                  14.0
+                ],
+                [
+                  7.0,
+                  14.0
+                ]
+              ],
+              "operation": "erase",
+              "source": "manual",
+              "edit_order": 9
+            }
+          ]
+        }
+      }
+    }
+  }
+]

@@ -18,11 +18,12 @@ dependencies = [
 ]
 
 [project.scripts]
-med-image-seg = "med_image_seg.cli:main"
+med-image-seg = "med_image_seg.__main__:main"
 
 [dependency-groups]
 dev = [
     "build>=1.2",
+    "pyright>=1.1.414",
     "pytest>=8.3",
     "pytest-cov>=6.0",
     "ruff>=0.11",
@@ -38,7 +39,8 @@ packages = ["med_image_seg"]
 [tool.hatch.build.targets.sdist]
 include = [
     "/med_image_seg",
-    "/tests",
+    "/Tests",
+    "/Docs",
     "/.python-version",
     "/LICENSE",
     "/README.md",
@@ -48,12 +50,20 @@ include = [
 
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers -ra"
-testpaths = ["tests"]
+testpaths = ["Tests"]
+python_files = ["C_Test*.py"]
+python_classes = ["C_Test*"]
+
+[tool.pyright]
+include = ["med_image_seg", "Tests", "Docs"]
+venvPath = "."
+venv = ".venv"
+typeCheckingMode = "standard"
 
 [tool.coverage.run]
 branch = true
 source = ["med_image_seg"]
-omit = ["med_image_seg/gui.py"]
+omit = ["med_image_seg/Concrete/Presentation/*"]
 
 [tool.coverage.report]
 show_missing = true
@@ -61,7 +71,8 @@ skip_covered = true
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+allowed-confusables = ["，", "；", "：", "（", "）", "？"]

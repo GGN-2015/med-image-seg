@@ -6,7 +6,7 @@ The GUI is bilingual. English is the default, and users can switch between Engli
 
 ## Screenshot
 
-![med-image-seg showing machine and manual bone contours on a real pelvic CBCT](https://raw.githubusercontent.com/GGN-2015/med-image-seg/main/docs/images/annotation-workflow.png)
+![med-image-seg showing machine and manual bone contours on a real pelvic CBCT](Docs/Images/annotation-workflow.png)
 
 The example shows a real pelvic CBCT with machine-generated contours in orange and purple, plus manual corrections in green and red on the same slice. The anonymized image is case `2PB043` from the [SynthRAD2023 dataset](https://doi.org/10.5281/zenodo.7260705), released under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/).
 
@@ -175,18 +175,18 @@ choosing a mask. Unload becomes available only after a successful mask load.
 Launch with no initial images:
 
 ```python
-from med_image_seg import AnnotationApplication
+from med_image_seg.Concrete.Application.Startup import C_ApplicationFactory
 
-app = AnnotationApplication(spacing_mm=0.8)
+app = C_ApplicationFactory().from_paths([], spacing_mm=0.8)
 app.run()
 ```
 
 Launch with an initial collection and a Chinese interface:
 
 ```python
-from med_image_seg import AnnotationApplication
+from med_image_seg.Concrete.Application.Startup import C_ApplicationFactory
 
-app = AnnotationApplication.from_paths(
+app = C_ApplicationFactory().from_paths(
     ["D:/dicom-series", "D:/images/pelvis.nii.gz"],
     spacing_mm=0.8,
     language="zh",
@@ -198,45 +198,80 @@ app.run()
 The window language can also be changed programmatically without restarting:
 
 ```python
-from med_image_seg import AnnotationMainWindow
+from PySide6.QtWidgets import QApplication
+from med_image_seg.Concrete.Presentation.Window import C_Qt_AnnotationMainWindow
 
-window = AnnotationMainWindow(language="en")
+qt_app = QApplication.instance() or QApplication([])
+window = C_Qt_AnnotationMainWindow(language="en")
 window.set_language("zh")
 ```
 
 The data model, interpolation, and exporter can be used independently:
 
 ```python
-from med_image_seg import (
-    AnnotationExporter,
-    AnnotationProject,
-    ImageSource,
-    MedicalVolumeReader,
-    PolygonAnnotation,
+from med_image_seg.Concrete.Application.Projects import (
+    C_AnnotationExporter, C_ProjectFactory,
+)
+from med_image_seg.Concrete.Domain.Annotations import C_PolygonAnnotation
+from med_image_seg.Concrete.Storage.Volumes import (
+    C_ImageSourceFactory, C_MedicalVolumeReader,
 )
 
-source = ImageSource.from_path("D:/images/pelvis.nii.gz")
-volume = MedicalVolumeReader(0.8).read(source.path)
-project = AnnotationProject.create(
-    image_id=source.source_id,
-    source_fingerprint=source.fingerprint,
+source = C_ImageSourceFactory().from_path("D:/images/pelvis.nii.gz")
+volume = C_MedicalVolumeReader(0.8).read(source.getPath())
+project = C_ProjectFactory().create(
+    image_id=source.getSourceId(),
+    source_fingerprint=source.getFingerprint(),
     volume=volume,
 )
 project.add_polygon(
     10,
-    PolygonAnnotation(points=((20, 20), (80, 20), (50, 90))),
+    C_PolygonAnnotation(points=((20, 20), (80, 20), (50, 90))),
 )
-project.save(source.annotation_path)
-AnnotationExporter().export(project, volume, source.mask_path)
-AnnotationExporter().export(project, volume, source.ubd_mask_path)
+project.save(source.getAnnotationPath())
+C_AnnotationExporter().export(project, volume, source.getMaskPath())
+C_AnnotationExporter().export(project, volume, source.getUbdMaskPath())
 ```
 
-The public API includes `ImageSource`, `ImageCollection`, `MedicalVolumeReader`, `AnnotationProject`, `PolygonAnnotation`, `AnnotationExporter`, `AnnotationApplication`, `AnnotationMainWindow`, `SliceCanvas`, `VolumeLoadThread`, and `launch_annotation_app`. GUI import, asynchronous loading, editing, saving, language switching, and export methods are callable directly from Python.
+Factories return `I_` interfaces, and callers use explicit getters rather than
+properties. Concrete implementations are constructed at application composition
+boundaries. Import paths follow the `Abstract` / `Concrete` package split; the
+CLI, annotation JSON schema, mask formats, and runtime GUI behavior are unchanged.
+
+## Architecture and collection contracts
+
+- `med_image_seg/Abstract` contains framework-independent `I_` interfaces,
+  `T_` generic interfaces, and `E_` enums. `Concrete` contains final `C_`
+  implementations; Qt adapters use `C_Qt_` names.
+- Writable interfaces extend their read-only counterparts. There are no
+  `@property` accessors, module-level service instances, or global helper functions.
+- Collections expose counts, indexed/keyed queries, and iterators, not internal
+  lists or dictionaries. For example, an image collection has `getSource(index)`
+  and `findByFingerprint(fingerprint)`. Canvas queries use `getDraftPoint(index)`,
+  `getPolygonItem(index)`, `getPolygonPoint(polygon_index, vertex_index)`, and
+  `getHandle(index)`, with separate count methods.
+- Polygon coordinates use `I_PointList` and `I_Point2D`; record fields use
+  `I_RecordFieldList`. Constructors may accept raw containers, but public reads
+  expose typed interfaces or individual values. JSON serialization still writes
+  the original coordinate arrays and field names.
+- The three fixed planes use `I_ObservationPlaneSet.getLP()`, `getPS()`, and
+  `getSL()`, rather than a string-keyed dictionary.
+- Generic parameters are declared inline with `TypeVar` and `Generic`; no
+  Python 3.12-only generic syntax is used. NumPy arrays are an explicitly allowed
+  numeric boundary type. Other third-party types stay in concrete adapters.
+- `Tests` and `Docs` use the same interface/implementation structure. Each type
+  has one file, and each package contains at most seven Python files.
+- Chinese class and method comments describe responsibilities, constraints, or
+  observable behavior. Avoid stock phrases that merely repeat a method name;
+  architecture tests check comment presence and reject known filler templates.
+- Compatibility fixtures in `Tests/Fixtures/Annotations/Golden.json` record
+  twelve pre-refactor JSON payloads, full mask hashes, and mask-presence intervals.
 
 ## Development checks
 
 ```powershell
 uv run pytest
+uv run pyright
 uv run ruff check .
 uv run ruff format --check .
 uv build
