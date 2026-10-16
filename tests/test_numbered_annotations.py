@@ -429,7 +429,7 @@ def test_deletion_failure_keeps_dirty_project_and_blocks_switch(window, monkeypa
     assert not window._dirty
 
 
-def test_switch_in_observation_rebuilds_all_masks_and_preserves_intersection(window):
+def test_observation_locks_number_until_return_to_editing(window):
     for index in (1, 7):
         window.set_slice(index)
         window.add_polygon(_polygon(), "add")
@@ -445,8 +445,14 @@ def test_switch_in_observation_rebuilds_all_masks_and_preserves_intersection(win
     position = window.observation_position
     views = tuple(window.observation_windows.values())
     old_mask = window._observation_mask.copy()
+    assert not window.annotation_index_spin.isEnabled()
+    window.annotation_index_spin.setValue(1)
+    assert window.annotation_index == window.annotation_index_spin.value() == 0
+    np.testing.assert_array_equal(window._observation_mask, old_mask)
+    window.add_radio.setChecked(True)
     assert window.annotation_index_spin.isEnabled()
     window.annotation_index_spin.setValue(1)
+    window.observe_radio.setChecked(True)
     assert window.read_only
     assert window.observation_position == position
     assert tuple(window.observation_windows.values()) == views
@@ -571,9 +577,7 @@ def test_empty_numbered_backup_is_removed_when_opened_without_primary(window):
     _assert_no_sidecars(path)
 
 
-def test_mask_failure_during_number_switch_preserves_observation_views(
-    window, monkeypatch
-):
+def test_programmatic_number_change_is_blocked_in_observation(window, monkeypatch):
     window.add_polygon(_polygon(), "add")
     target = window.current_source.annotation_path_for_index(2)
     project = _new_project(window)
@@ -586,14 +590,12 @@ def test_mask_failure_during_number_switch_preserves_observation_views(
     errors = []
 
     def fail(*args, **kwargs):
-        assert not window.isEnabled()
-        assert all(not view.isEnabled() for view in window.observation_windows.values())
-        raise MemoryError("mask allocation failed")
+        pytest.fail("Read-only mode must not open another annotation")
 
-    monkeypatch.setattr(AnnotationProject, "to_mask", fail)
+    monkeypatch.setattr(window, "_open_annotation_project", fail)
     monkeypatch.setattr(QMessageBox, "critical", lambda *args: errors.append(args[2]))
     assert not window.set_annotation_index(2)
-    assert errors == ["mask allocation failed"]
+    assert errors == []
     assert window.project is original_project
     assert window._observation_mask is original_mask
     assert window.project_path == original_path

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import gzip
 import os
 import shutil
 from dataclasses import dataclass
+from itertools import product
 from pathlib import Path
 from tempfile import TemporaryDirectory, gettempdir
 from typing import Any, Literal
@@ -54,7 +56,7 @@ def _ascii_temporary_directory() -> TemporaryDirectory[str]:
         except OSError:
             continue
     raise OSError(
-        "NIfTI export requires a writable ASCII-only temporary directory; "
+        "NIfTI I/O requires a writable ASCII-only temporary directory; "
         "set TMPDIR, TEMP, or TMP to an ASCII-only path."
     )
 
@@ -195,6 +197,99 @@ class MedicalMaskWriter:
         return output
 
 
+class MedicalMaskReader:
+    """Read an external mask directly onto the reference image's L/P/S grid."""
+
+    @staticmethod
+    def _binary_array(data: np.ndarray) -> np.ndarray:
+        if data.ndim != 3 or any(size == 0 for size in data.shape):
+            raise ValueError("external mask must be a nonempty 3-D array")
+        if data.dtype.kind not in "buif" or not np.isfinite(data).all():
+            raise ValueError("external mask must contain finite real numeric values")
+        return np.asarray(data != 0, dtype=np.uint8)
+
+    def read(self, path: str | Path, reference: MedicalVolume) -> np.ndarray:
+        source = Path(path).expanduser().resolve()
+        if not source.is_file():
+            raise FileNotFoundError(f"external mask not found: {source}")
+        if source.name.lower().endswith(".ubd.npz"):
+            with np.load(source, allow_pickle=False) as archive:
+                data = self._binary_array(archive["body_data"])
+                spacing = float(archive["mmpd"].item())
+            if not np.isfinite(spacing) or spacing <= 0:
+                raise ValueError("UBD mask spacing must be finite and positive")
+            mask_extent = np.asarray(data.shape) * spacing
+            image_extent = np.asarray(reference.data.shape) * reference.spacing_mm
+            tolerance = max(spacing, *reference.spacing_mm) + 1e-5
+            if not np.allclose(mask_extent, image_extent, rtol=1e-5, atol=tolerance):
+                raise ValueError("UBD mask field of view does not match the image")
+            image = sitk.GetImageFromArray(np.transpose(data, (2, 1, 0)))
+            image.SetSpacing((spacing,) * 3)
+            image.SetOrigin(
+                tuple(
+                    origin - target_spacing / 2 + spacing / 2
+                    for origin, target_spacing in zip(
+                        reference.origin_lps_mm, reference.spacing_mm, strict=True
+                    )
+                )
+            )
+        elif source.name.lower().endswith((".nii", ".nii.gz")):
+            with source.open("rb") as header:
+                compressed = header.read(2) == b"\x1f\x8b"
+            with _ascii_temporary_directory() as directory:
+                temporary = Path(directory) / "external-mask.nii"
+                if compressed:
+                    with (
+                        gzip.open(source, "rb") as input_file,
+                        temporary.open("wb") as output_file,
+                    ):
+                        shutil.copyfileobj(input_file, output_file)
+                else:
+                    shutil.copyfile(source, temporary)
+                original = sitk.ReadImage(str(temporary))
+            if (
+                original.GetDimension() != 3
+                or original.GetNumberOfComponentsPerPixel() != 1
+            ):
+                raise ValueError("external NIfTI mask must be a scalar 3-D image")
+            data = self._binary_array(sitk.GetArrayFromImage(original))
+            image = sitk.GetImageFromArray(data)
+            image.CopyInformation(original)
+        else:
+            raise ValueError("external mask must end with .nii, .nii.gz, or .ubd.npz")
+        corners = np.asarray(
+            [
+                image.TransformContinuousIndexToPhysicalPoint(list(corner))
+                for corner in product(*[(-0.5, size - 0.5) for size in image.GetSize()])
+            ]
+        )
+        reference_lower = (
+            np.asarray(reference.origin_lps_mm) - np.asarray(reference.spacing_mm) / 2
+        )
+        reference_upper = (
+            reference_lower + np.asarray(reference.data.shape) * reference.spacing_mm
+        )
+        if np.any(corners.max(axis=0) <= reference_lower) or np.any(
+            corners.min(axis=0) >= reference_upper
+        ):
+            raise ValueError(
+                "external mask does not overlap the image in physical space"
+            )
+        resampler = sitk.ResampleImageFilter()
+        resampler.SetSize([int(size) for size in reference.data.shape])
+        resampler.SetOutputSpacing(reference.spacing_mm)
+        resampler.SetOutputOrigin(reference.origin_lps_mm)
+        resampler.SetOutputDirection((1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0))
+        resampler.SetTransform(sitk.Transform(3, sitk.sitkIdentity))
+        resampler.SetInterpolator(sitk.sitkNearestNeighbor)
+        resampler.SetDefaultPixelValue(0)
+        resampler.SetOutputPixelType(sitk.sitkUInt8)
+        aligned = resampler.Execute(image)
+        return np.ascontiguousarray(
+            np.transpose(sitk.GetArrayFromImage(aligned), (2, 1, 0))
+        )
+
+
 def save_mask(
     path: str | Path,
     mask: np.ndarray,
@@ -211,6 +306,7 @@ def save_mask(
 
 
 __all__ = [
+    "MedicalMaskReader",
     "MedicalMaskWriter",
     "MedicalVolume",
     "MedicalVolumeReader",

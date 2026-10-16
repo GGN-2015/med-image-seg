@@ -79,12 +79,13 @@ _TEXT: dict[str, dict[UiLanguage, str]] = {
         "en": (
             "Nonnegative integer. 0 uses the original .med-image-seg.json; "
             "n > 0 uses .med-image-seg-<n>.json. Switching saves the previous "
-            "annotation. Numbered files with no polygons are removed."
+            "annotation. Numbered files with no polygons are removed. "
+            "Locked in read-only mode."
         ),
         "zh": (
             "输入大于等于 0 的整数。0 使用原来的 .med-image-seg.json；"
             "n > 0 使用 .med-image-seg-<n>.json。切换前自动保存原标注。"
-            "高编号标注没有任何多边形时不保留文件。"
+            "高编号标注没有任何多边形时不保留文件。只读模式下不可切换。"
         ),
     },
     "switching_annotation_status": {
@@ -204,6 +205,64 @@ _TEXT: dict[str, dict[UiLanguage, str]] = {
     "window": {"en": "Intensity window", "zh": "灰度窗"},
     "window_level": {"en": "Level", "zh": "窗位"},
     "window_width": {"en": "Width", "zh": "窗宽"},
+    "load_external_mask": {"en": "Load external mask", "zh": "载入外置掩码"},
+    "unload_external_mask": {"en": "Unload external mask", "zh": "卸载外置掩码"},
+    "external_mask_title": {"en": "External mask", "zh": "外置掩码"},
+    "external_mask_choose": {"en": "Choose an external mask", "zh": "选择外置掩码"},
+    "external_mask_filter": {
+        "en": "Mask files (*.nii *.nii.gz *.ubd.npz)",
+        "zh": "掩码文件 (*.nii *.nii.gz *.ubd.npz)",
+    },
+    "external_mask_no_image": {
+        "en": "Load an image before loading an external mask.",
+        "zh": "请先载入影像，再载入外置掩码。",
+    },
+    "external_mask_loading": {
+        "en": "Reading and aligning the external mask...\n{path}",
+        "zh": "正在读取外置掩码并进行空间对齐…\n{path}",
+    },
+    "external_mask_failed": {
+        "en": "Unable to load external mask",
+        "zh": "无法载入外置掩码",
+    },
+    "external_mask_shape_error": {
+        "en": "The aligned mask dimensions do not match the image.",
+        "zh": "对齐后的掩码尺寸与影像不匹配。",
+    },
+    "external_mask_loaded": {
+        "en": "External mask (read-only): {path}",
+        "zh": "外置掩码（只读）：{path}",
+    },
+    "external_mask_unloading": {
+        "en": "Unloading external mask and restoring annotations...",
+        "zh": "正在卸载外置掩码并恢复原标注界面…",
+    },
+    "external_mask_unloaded": {
+        "en": "External mask unloaded; the previous annotation view is restored.",
+        "zh": "外置掩码已卸载，已恢复之前的标注界面。",
+    },
+    "external_mask_current": {
+        "en": "External mask · slice {index}\n{path}",
+        "zh": "外置掩码 · 当前层 {index}\n{path}",
+    },
+    "external_mask_json_paused": {
+        "en": "JSON saving paused; annotation {index} is locked.\n{path}",
+        "zh": "JSON 保存已暂停；标注编号 {index} 已锁定。\n{path}",
+    },
+    "external_mask_hint": {
+        "en": (
+            "External mask preview only: translucent light red regions are not "
+            "editable. All three views share the same intersection.\n"
+            "JSON contours and interpolation are hidden; JSON saving, exports, "
+            "and annotation-number changes are disabled.\n"
+            "Unload to restore the previous annotation, slice, and mode."
+        ),
+        "zh": (
+            "仅预览外置掩码：半透明淡红色区域不可编辑，三视图共享交点。\n"
+            "JSON 多边形及插值已隐藏，JSON 保存、导出和编号切换均已禁用。\n"
+            "卸载后恢复原来的标注、层号和模式。"
+        ),
+    },
     "hint": {
         "en": (
             "Left-click to add vertices; right-click or double-click to close. "

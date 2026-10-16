@@ -9,6 +9,7 @@ from .annotation import (
 from .application import AnnotationApplication, launch_annotation_app
 from .gui import AnnotationMainWindow, SliceCanvas, VolumeLoadThread
 from .io import (
+    MedicalMaskReader,
     MedicalMaskWriter,
     MedicalVolume,
     MedicalVolumeReader,
@@ -26,6 +27,7 @@ __all__ = [
     "AnnotationProject",
     "ImageCollection",
     "ImageSource",
+    "MedicalMaskReader",
     "MedicalMaskWriter",
     "MedicalVolume",
     "MedicalVolumeReader",

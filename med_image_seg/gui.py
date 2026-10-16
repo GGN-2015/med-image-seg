@@ -6,6 +6,7 @@ import operator
 import sys
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from itertools import pairwise
 from pathlib import Path
 
@@ -77,10 +78,21 @@ from PySide6.QtWidgets import (
 )
 
 from .annotation import AnnotationExporter, AnnotationProject, PolygonAnnotation
-from .io import MedicalVolume, MedicalVolumeReader
+from .io import MedicalMaskReader, MedicalVolume, MedicalVolumeReader
 from .localization import UiLanguage, normalize_language, translate
 from .observation import AXIS_COLORS, OBSERVATION_PLANES, ObservationPlane
 from .sources import ImageCollection, ImageSource
+
+EXTERNAL_MASK_COLOR = (255, 128, 128, 90)
+
+
+@dataclass(frozen=True, slots=True)
+class ExternalMaskViewState:
+    mode: str
+    annotation_index: int
+    position: tuple[int, int, int]
+    coverage: tuple[bool, ...]
+    autosave_active: bool
 
 
 class AnnotationIndexSpinBox(QAbstractSpinBox):
@@ -313,6 +325,8 @@ class SliceCanvas(QGraphicsView):
         image: np.ndarray,
         polygons: list[PolygonAnnotation],
         interpolated_mask: np.ndarray | None = None,
+        *,
+        overlay_color: tuple[int, int, int, int] = (49, 180, 255, 72),
     ) -> None:
         self.scene().clear()
         self._interpolation_item = None
@@ -339,7 +353,7 @@ class SliceCanvas(QGraphicsView):
         self.scene().setSceneRect(self._image_rect)
         if interpolated_mask is not None:
             overlay = np.zeros((height, width, 4), dtype=np.uint8)
-            overlay[np.asarray(interpolated_mask, dtype=bool)] = (49, 180, 255, 72)
+            overlay[np.asarray(interpolated_mask, dtype=bool)] = overlay_color
             overlay_image = QImage(
                 overlay.data,
                 width,
@@ -564,6 +578,27 @@ class VolumeLoadThread(QThread):
         self.loaded.emit(volume)
 
 
+class ExternalMaskLoadThread(QThread):
+    """Read, align, and measure external mask coverage off the GUI thread."""
+
+    loaded = Signal(object, object)
+    failed = Signal(str)
+
+    def __init__(self, path: Path, reference: MedicalVolume, parent: QWidget) -> None:
+        super().__init__(parent)
+        self.path = path
+        self.reference = reference
+
+    def run(self) -> None:
+        try:
+            mask = MedicalMaskReader().read(self.path, self.reference)
+            presence = mask.any(axis=(0, 1))
+        except Exception as exc:
+            self.failed.emit(f"{type(exc).__name__}: {exc}")
+            return
+        self.loaded.emit(mask, presence)
+
+
 class AnnotationMainWindow(QMainWindow):
     """Interactive annotation window with colocated realtime persistence."""
 
@@ -600,6 +635,14 @@ class AnnotationMainWindow(QMainWindow):
         self._observation_mask: np.ndarray | None = None
         self.observation_windows: dict[str, OrthogonalSliceWindow] = {}
         self._editing_interpolation_visible = True
+        self.external_mask: np.ndarray | None = None
+        self.external_mask_path: Path | None = None
+        self.external_mask_thread: ExternalMaskLoadThread | None = None
+        self.external_loading_dialog: QProgressDialog | None = None
+        self._external_view_state: ExternalMaskViewState | None = None
+        self._external_mask_error: str | None = None
+        self._external_loading_widget_states: list[tuple[QWidget, bool]] = []
+        self._external_loading_shortcut_states: list[tuple[QShortcut, bool]] = []
         self._build_ui(spacing_mm)
         self._bind_shortcuts()
         self._refresh_source_list()
@@ -803,6 +846,15 @@ class AnnotationMainWindow(QMainWindow):
         window_layout.addLayout(level_row)
         window_layout.addLayout(width_row)
         right_layout.addWidget(self.window_group)
+        external_mask_row = QHBoxLayout()
+        self.load_external_mask_button = QPushButton()
+        self.load_external_mask_button.clicked.connect(self.choose_external_mask)
+        self.unload_external_mask_button = QPushButton()
+        self.unload_external_mask_button.setEnabled(False)
+        self.unload_external_mask_button.clicked.connect(self.unload_external_mask)
+        external_mask_row.addWidget(self.load_external_mask_button)
+        external_mask_row.addWidget(self.unload_external_mask_button)
+        right_layout.addLayout(external_mask_row)
         right_layout.addStretch(1)
         self.hint_label = QLabel()
         self.hint_label.setWordWrap(True)
@@ -814,9 +866,6 @@ class AnnotationMainWindow(QMainWindow):
         self.splitter.setSizes([310, 900, 280])
         self.setCentralWidget(root_widget)
         self.setStatusBar(QStatusBar())
-        center.setEnabled(False)
-        right.setEnabled(False)
-        self.editor_widgets = (center, right)
         self.editing_controls = (
             self.finish_button,
             self.cancel_button,
@@ -826,10 +875,200 @@ class AnnotationMainWindow(QMainWindow):
             self.completed_check,
             self.force_empty_check,
         )
+        self.editor_widgets = (
+            center,
+            self.mode_group,
+            self.annotation_index_spin,
+            self.window_group,
+            self.next_incomplete_button,
+            self.review_progress,
+            self.show_interpolation,
+            *self.editing_controls,
+        )
+        for widget in self.editor_widgets:
+            widget.setEnabled(False)
         self._retranslate_ui()
 
     def _text(self, key: str, **values: object) -> str:
         return translate(key, self.language, **values)
+
+    @property
+    def external_preview_active(self) -> bool:
+        return self._external_view_state is not None
+
+    def _hint_key(self) -> str:
+        if self.external_preview_active:
+            return "external_mask_hint"
+        return "observation_hint" if self.read_only else "hint"
+
+    def _begin_external_preview(self) -> bool:
+        if (
+            self.external_preview_active
+            or self.load_thread is not None
+            or self._closing_polygon
+        ):
+            return False
+        if self.volume is None or self.project is None:
+            QMessageBox.information(
+                self,
+                self._text("external_mask_title"),
+                self._text("external_mask_no_image"),
+            )
+            return False
+        self.canvas.finish_polygon()
+        if not self.save_project(notify=True):
+            return False
+        self._external_view_state = ExternalMaskViewState(
+            mode="observe" if self.read_only else self.canvas._operation,
+            annotation_index=self.annotation_index,
+            position=self.observation_position,
+            coverage=self.mask_coverage_bar.presence,
+            autosave_active=self.autosave_timer.isActive(),
+        )
+        self.autosave_timer.stop()
+        self.mask_coverage_bar.set_presence([False] * self.volume.data.shape[2])
+        self.observe_radio.setChecked(True)
+        self._apply_mode_ui()
+        self.refresh_slice()
+        return True
+
+    def choose_external_mask(self) -> None:
+        if not self._begin_external_preview():
+            return
+        try:
+            selected, _ = QFileDialog.getOpenFileName(
+                self,
+                self._text("external_mask_choose"),
+                str(self.current_source.path.parent),
+                self._text("external_mask_filter"),
+            )
+        except Exception as exc:
+            self.unload_external_mask()
+            QMessageBox.critical(self, self._text("external_mask_failed"), str(exc))
+            return
+        if not selected:
+            self.unload_external_mask()
+            return
+        self._start_external_mask_load(Path(selected))
+
+    def load_external_mask(self, path: str | Path) -> bool:
+        """Start a non-editable external-mask preview without opening a file dialog."""
+
+        if not self._begin_external_preview():
+            return False
+        self._start_external_mask_load(Path(path))
+        return True
+
+    def _start_external_mask_load(self, path: Path) -> None:
+        assert self.volume is not None
+        self.external_mask_path = path.expanduser().resolve()
+        self._external_mask_error = None
+        self._external_loading_widget_states = [
+            (widget, widget.isEnabled())
+            for widget in (
+                self.centralWidget(),
+                self.annotation_toolbar,
+                *self.observation_windows.values(),
+            )
+        ]
+        self._external_loading_shortcut_states = [
+            (shortcut, shortcut.isEnabled())
+            for shortcut in self.findChildren(QShortcut)
+        ]
+        for widget, _enabled in self._external_loading_widget_states:
+            widget.setEnabled(False)
+        for shortcut, _enabled in self._external_loading_shortcut_states:
+            shortcut.setEnabled(False)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        dialog = QProgressDialog(
+            self._text("external_mask_loading", path=self.external_mask_path),
+            "",
+            0,
+            0,
+            self,
+        )
+        dialog.setWindowTitle(self._text("external_mask_title"))
+        dialog.setCancelButton(None)
+        dialog.setWindowFlag(Qt.WindowType.WindowCloseButtonHint, False)
+        dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
+        dialog.setMinimumDuration(0)
+        dialog.setAutoClose(False)
+        dialog.setAutoReset(False)
+        dialog.show()
+        self.external_loading_dialog = dialog
+        self.external_mask_thread = ExternalMaskLoadThread(
+            self.external_mask_path, self.volume, self
+        )
+        self.external_mask_thread.loaded.connect(self.external_mask_loaded)
+        self.external_mask_thread.failed.connect(self.external_mask_load_failed)
+        self.external_mask_thread.finished.connect(self.external_mask_thread_finished)
+        self.external_mask_thread.start()
+
+    def external_mask_loaded(self, mask: np.ndarray, presence: np.ndarray) -> None:
+        if self.volume is None or mask.shape != self.volume.data.shape:
+            self._external_mask_error = self._text("external_mask_shape_error")
+            return
+        self.external_mask = mask
+        self.mask_coverage_bar.set_presence(presence)
+        self.refresh_slice()
+
+    def external_mask_load_failed(self, message: str) -> None:
+        self._external_mask_error = message
+
+    def external_mask_thread_finished(self) -> None:
+        thread = self.external_mask_thread
+        self.external_mask_thread = None
+        if thread is not None:
+            thread.deleteLater()
+        if self.external_loading_dialog is not None:
+            self.external_loading_dialog.close()
+            self.external_loading_dialog.deleteLater()
+            self.external_loading_dialog = None
+        for widget, enabled in self._external_loading_widget_states:
+            widget.setEnabled(enabled)
+        for shortcut, enabled in self._external_loading_shortcut_states:
+            shortcut.setEnabled(enabled)
+        self._external_loading_widget_states.clear()
+        self._external_loading_shortcut_states.clear()
+        QApplication.restoreOverrideCursor()
+        if self._external_mask_error is not None:
+            error = self._external_mask_error
+            self.unload_external_mask()
+            QMessageBox.critical(self, self._text("external_mask_failed"), error)
+            return
+        self._apply_mode_ui()
+        self.statusBar().showMessage(
+            self._text("external_mask_loaded", path=self.external_mask_path)
+        )
+
+    def unload_external_mask(self) -> bool:
+        state = self._external_view_state
+        if state is None or self.external_mask_thread is not None:
+            return False
+        with self._polygon_busy_ui("external_mask_unloading"):
+            self.external_mask = None
+            self.external_mask_path = None
+            self._external_view_state = None
+            self.annotation_index = state.annotation_index
+            self._sync_annotation_index_spin()
+            self.observation_position = state.position
+            self.current_slice = state.position[2]
+            self.mask_coverage_bar.set_presence(state.coverage)
+            self._mask_coverage_dirty = False
+            radio = {
+                "add": self.add_radio,
+                "erase": self.erase_radio,
+                "observe": self.observe_radio,
+            }[state.mode]
+            radio.setChecked(True)
+            self._apply_mode_ui()
+            self.set_slice(state.position[2])
+            self._show_annotation_path()
+        if state.autosave_active:
+            self.autosave_timer.start()
+        self._apply_mode_ui()
+        self.statusBar().showMessage(self._text("external_mask_unloaded"))
+        return True
 
     def _language_changed(self, index: int) -> None:
         language = self.language_combo.itemData(index)
@@ -889,9 +1128,9 @@ class AnnotationMainWindow(QMainWindow):
         self.window_group.setTitle(self._text("window"))
         self.level_label.setText(self._text("window_level"))
         self.width_label.setText(self._text("window_width"))
-        self.hint_label.setText(
-            self._text("observation_hint" if self.read_only else "hint")
-        )
+        self.load_external_mask_button.setText(self._text("load_external_mask"))
+        self.unload_external_mask_button.setText(self._text("unload_external_mask"))
+        self.hint_label.setText(self._text(self._hint_key()))
         if self.volume is not None and self.project is not None:
             self.refresh_slice()
             if self.project_path is not None:
@@ -979,7 +1218,7 @@ class AnnotationMainWindow(QMainWindow):
 
     def load_selected_source(self, _item=None) -> None:
         item = self.source_list.currentItem()
-        if item is None or self.load_thread is not None:
+        if item is None or self.load_thread is not None or self.external_preview_active:
             return
         if not self.save_project(notify=True):
             return
@@ -1078,6 +1317,15 @@ class AnnotationMainWindow(QMainWindow):
         self.annotation_index_spin.blockSignals(was_blocked)
 
     def _show_annotation_path(self) -> None:
+        if self.external_preview_active:
+            self.autosave_status.setText(
+                self._text(
+                    "external_mask_json_paused",
+                    index=self.annotation_index,
+                    path=self.project_path,
+                )
+            )
+            return
         empty_numbered = (
             self.annotation_index > 0
             and self.project is not None
@@ -1101,6 +1349,8 @@ class AnnotationMainWindow(QMainWindow):
             self._closing_polygon
             or self._switching_annotation
             or self.load_thread is not None
+            or self.read_only
+            or self.external_preview_active
         ):
             self._sync_annotation_index_spin()
             return False
@@ -1152,6 +1402,8 @@ class AnnotationMainWindow(QMainWindow):
             self._sync_annotation_index_spin()
 
     def volume_loaded(self, volume: MedicalVolume) -> None:
+        if self.external_preview_active:
+            return
         assert self._loading_source is not None
         source = self._loading_source
         try:
@@ -1204,6 +1456,9 @@ class AnnotationMainWindow(QMainWindow):
 
     def update_operation(self) -> None:
         observe = self.observe_radio.isChecked()
+        if self.external_preview_active and not observe:
+            self.observe_radio.setChecked(True)
+            return
         if observe == self.read_only:
             if not observe:
                 self.canvas.set_operation(
@@ -1215,18 +1470,21 @@ class AnnotationMainWindow(QMainWindow):
                 self.add_radio.setChecked(True)
                 return
             self.canvas.finish_polygon()
-            try:
-                with self._polygon_busy_ui("preparing_observation"):
-                    self._observation_mask = self.project.to_mask(interpolate=True)
-            except Exception as exc:
-                radio = (
-                    self.add_radio
-                    if self.canvas._operation == "add"
-                    else self.erase_radio
-                )
-                radio.setChecked(True)
-                QMessageBox.critical(self, self._text("observation_failed"), str(exc))
-                return
+            if not self.external_preview_active:
+                try:
+                    with self._polygon_busy_ui("preparing_observation"):
+                        self._observation_mask = self.project.to_mask(interpolate=True)
+                except Exception as exc:
+                    radio = (
+                        self.add_radio
+                        if self.canvas._operation == "add"
+                        else self.erase_radio
+                    )
+                    radio.setChecked(True)
+                    QMessageBox.critical(
+                        self, self._text("observation_failed"), str(exc)
+                    )
+                    return
             self._editing_interpolation_visible = self.show_interpolation.isChecked()
         self.read_only = observe
         self.canvas.set_read_only(observe)
@@ -1247,15 +1505,33 @@ class AnnotationMainWindow(QMainWindow):
         self.refresh_slice()
 
     def _apply_mode_ui(self) -> None:
+        has_volume = self.volume is not None and self.project is not None
+        external = self.external_preview_active
         for control in self.editing_controls:
-            control.setEnabled(not self.read_only)
+            control.setEnabled(has_volume and not self.read_only)
         for shortcut in self.editing_shortcuts:
-            shortcut.setEnabled(not self.read_only)
-        self.show_interpolation.setEnabled(not self.read_only)
+            shortcut.setEnabled(has_volume and not self.read_only)
+        self.show_interpolation.setEnabled(has_volume and not self.read_only)
+        self.annotation_index_spin.setEnabled(has_volume and not self.read_only)
+        self.mode_group.setEnabled(has_volume and not external)
+        self.next_incomplete_button.setEnabled(has_volume and not external)
+        self.review_progress.setEnabled(has_volume and not external)
+        self.previous_labeled_button.setEnabled(not external)
+        self.next_labeled_button.setEnabled(not external)
+        for widget in (
+            self.file_button,
+            self.dicom_button,
+            self.load_button,
+            self.source_list,
+            self.spacing_spin,
+        ):
+            widget.setEnabled(not external)
+        for action in self.annotation_toolbar.actions():
+            action.setEnabled(has_volume and not external)
+        self.load_external_mask_button.setEnabled(not external)
+        self.unload_external_mask_button.setEnabled(self.external_mask is not None)
         self.observation_status.setVisible(self.read_only)
-        self.hint_label.setText(
-            self._text("observation_hint" if self.read_only else "hint")
-        )
+        self.hint_label.setText(self._text(self._hint_key()))
 
     def _ensure_observation_windows(self) -> None:
         for name in ("PS", "SL"):
@@ -1296,7 +1572,10 @@ class AnnotationMainWindow(QMainWindow):
 
     def _refresh_observation_views(self) -> None:
         assert self.volume is not None
-        assert self._observation_mask is not None
+        external = self.external_preview_active
+        mask = self.external_mask if external else self._observation_mask
+        if not external:
+            assert mask is not None
         self.canvas.set_crosshair(OBSERVATION_PLANES["LP"], self.observation_position)
         self.observation_status.setText(
             self._text(
@@ -1313,7 +1592,10 @@ class AnnotationMainWindow(QMainWindow):
                     plane.section(self.volume.data, self.observation_position)
                 ),
                 [],
-                plane.section(self._observation_mask, self.observation_position),
+                None
+                if mask is None
+                else plane.section(mask, self.observation_position),
+                overlay_color=EXTERNAL_MASK_COLOR if external else (49, 180, 255, 72),
             )
             view.canvas.set_crosshair(plane, self.observation_position)
             view.slice_spin.blockSignals(True)
@@ -1350,6 +1632,25 @@ class AnnotationMainWindow(QMainWindow):
 
     def refresh_slice(self) -> None:
         if self.volume is None or self.project is None:
+            return
+        if self.external_preview_active:
+            self.canvas.set_slice(
+                self._windowed_slice(),
+                [],
+                None
+                if self.external_mask is None
+                else self.external_mask[:, :, self.current_slice].T,
+                overlay_color=EXTERNAL_MASK_COLOR,
+            )
+            self.interpolation_status.setText(
+                self._text(
+                    "external_mask_current",
+                    index=self.current_slice,
+                    path=self.external_mask_path or "…",
+                )
+            )
+            self._show_annotation_path()
+            self._refresh_observation_views()
             return
         if self._mask_coverage_dirty:
             self.mask_coverage_bar.set_presence(self.project.mask_presence())
@@ -1436,6 +1737,7 @@ class AnnotationMainWindow(QMainWindow):
             or self._closing_polygon
             or self._switching_annotation
             or self.load_thread is not None
+            or self.external_preview_active
         ):
             return
         candidates = (
@@ -1598,7 +1900,7 @@ class AnnotationMainWindow(QMainWindow):
             self.completed_check.setChecked(not self.completed_check.isChecked())
 
     def go_to_next_incomplete(self) -> None:
-        if self.project is None:
+        if self.project is None or self.external_preview_active:
             return
         depth = self.project.shape_lps[2]
         for offset in range(1, depth + 1):
@@ -1608,16 +1910,24 @@ class AnnotationMainWindow(QMainWindow):
                 return
 
     def commit_change(self) -> None:
+        if self.external_preview_active:
+            return
         self._dirty = True
         self._mask_coverage_dirty = True
         self._observation_mask = None
         self.save_project()
 
     def autosave_if_needed(self) -> None:
-        if self._dirty and not self._closing_polygon:
+        if (
+            self._dirty
+            and not self._closing_polygon
+            and not self.external_preview_active
+        ):
             self.save_project()
 
     def save_project(self, *, notify: bool = False, force: bool = False) -> bool:
+        if self.external_preview_active:
+            return True
         empty_numbered = (
             self.annotation_index > 0
             and self.project is not None
@@ -1666,7 +1976,11 @@ class AnnotationMainWindow(QMainWindow):
             self._export_mask(self.current_source.ubd_mask_path)
 
     def export_annotations(self) -> None:
-        if self.project is None or self.project_path is None:
+        if (
+            self.project is None
+            or self.project_path is None
+            or self.external_preview_active
+        ):
             return
         if not self.save_project(notify=True, force=True):
             return
@@ -1683,7 +1997,7 @@ class AnnotationMainWindow(QMainWindow):
         )
 
     def _export_mask(self, output: Path) -> None:
-        if self.project is None or self.volume is None:
+        if self.project is None or self.volume is None or self.external_preview_active:
             return
         if not self.save_project(notify=True):
             return
@@ -1715,6 +2029,9 @@ class AnnotationMainWindow(QMainWindow):
         )
 
     def closeEvent(self, event) -> None:
+        if self.external_mask_thread is not None:
+            event.ignore()
+            return
         if self._closing_polygon:
             event.ignore()
             return

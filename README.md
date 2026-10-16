@@ -83,8 +83,8 @@ to switch. Typing a multi-digit number does not load each intermediate number.
   leaving an empty numbered project. A forced-empty slice with saved polygons,
   or an erase-only polygon, still counts as having polygons and keeps the file.
 - Save, deletion, or target-validation failures leave the current project active
-  and restore the displayed number. Observation mode refreshes all three mask
-  views when the annotation number changes.
+  and restore the displayed number. The annotation number is locked in read-only
+  observation mode; return to Add or Erase before selecting another number.
 
 The JSON export action saves the selected number and follows its empty-file
 policy. NIfTI and UBD exports use the selected annotation's mask and retain their
@@ -136,6 +136,39 @@ manual contours, erasures, and forced-empty slices. The mask is computed once
 when entering observation and reused while navigating. All polygon editing,
 review, and forced-empty controls and shortcuts are disabled; navigation,
 contrast, zoom, and export remain available.
+
+## External mask preview
+
+Use **Load external mask** / **Unload external mask**, below the window/level
+controls, to inspect an existing `.nii`, `.nii.gz`, or `.ubd.npz` mask alongside
+the loaded image. Load is available at startup; an image must be loaded before
+choosing a mask. Unload becomes available only after a successful mask load.
+
+- Loading first closes and saves any valid polygon draft and enters read-only
+  observation mode, then opens the file chooser. Reading, alignment, and coverage
+  calculation run on a background thread with a modal progress indicator. The
+  main window, companion windows, and shortcuts are disabled until completion.
+- LP, PS, and SL show only the external mask in translucent pale red, with linked
+  crosshairs. Stored polygons, control points, and their interpolation are hidden.
+  All nonzero mask labels are shown as foreground; an all-zero mask is valid.
+  The slider-aligned coverage bar turns green only on nonempty external-mask
+  slices, including disconnected intervals; all other slices stay gray.
+- NIfTI masks are aligned using their origin, spacing, and direction, then
+  resampled onto the loaded image's L/P/S grid with nearest-neighbor sampling.
+  Areas outside the mask volume are empty; masks with no physical overlap are
+  rejected. Unicode file paths are supported through ASCII-only temporary I/O.
+- UBD masks use `body_data` in L/P/S order and the isotropic `mmpd` spacing. UBD
+  stores no origin or direction, so its field of view must match the image to
+  within one voxel, and the lower voxel-support edges are assumed to coincide.
+  Use NIfTI when the mask has a different physical origin, orientation, or crop.
+- While a mask is loaded, the current JSON project stays in memory unchanged:
+  editing, annotation-number switching, autosave, export, image switching, and
+  loading another mask are disabled. Slice navigation, crosshairs, contrast,
+  zoom, and language selection remain available.
+- Unloading restores the original annotation number, slice, intersection,
+  editing/observation mode, interpolation visibility, and JSON coverage without
+  reloading the JSON. Canceling the chooser or failing to load a mask also
+  restores this state; failed loads display an error message.
 
 ## Python API
 
