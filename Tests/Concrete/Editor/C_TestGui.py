@@ -11,7 +11,9 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
+    QFileDialog,
     QGraphicsEllipseItem,
+    QGraphicsItem,
     QGraphicsPathItem,
     QGraphicsPixmapItem,
     QGraphicsPolygonItem,
@@ -556,12 +558,20 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
         finally:
             window.close()
 
-    # 触发工具栏导出动作，核验文件包含自动插值掩码。
+    # 选择自定义路径导出掩码，核验格式、插值内容和中英保存对话框。
     @pytest.mark.parametrize("suffix", [".nii.gz", ".ubd.npz"])
+    @pytest.mark.parametrize("with_suffix", [False, True])
+    @pytest.mark.parametrize("language", ["en", "zh"])
     def test_export_toolbar_actions_write_interpolated_masks(
-        self, tmp_path: I_FilePath, monkeypatch: MonkeyPatch, suffix: str
+        self,
+        tmp_path: I_FilePath,
+        monkeypatch: MonkeyPatch,
+        suffix: str,
+        with_suffix: bool,
+        language: str,
     ) -> None:
         from med_image_seg.Concrete.Domain.Geometry.C_PointList import C_PointList
+        from med_image_seg.Concrete.Localization.C_Localizer import C_Localizer
         from med_image_seg.Concrete.Presentation.Window import (
             C_Qt_AnnotationMainWindow,
         )
@@ -571,11 +581,23 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
         app = C_GuiFixtures().app()
         source = C_GuiFixtures().source(tmp_path)
         volume = C_GuiFixtures().volume(source)
-        window = C_Qt_AnnotationMainWindow(sources=[])
+        window = C_Qt_AnnotationMainWindow(sources=[], language=language)
         window.setInternalLoadingSource(source)
         window.volume_loaded(volume)
         window._finish_loading_ui()
         messages: list[str] = []
+        output = tmp_path / "另存目录" / f"自定义掩码{suffix}"
+        selected = output if with_suffix else output.with_name("自定义掩码")
+        dialog_calls: list[tuple[str, str, str]] = []
+
+        # 替代原生保存对话框，记录默认路径与译文并返回用户选择的名称。
+        def select_export(
+            _parent: QWidget, title: str, directory: str, file_filter: str
+        ) -> tuple[str, str]:
+            dialog_calls.append((title, directory, file_filter))
+            return str(selected), ""
+
+        monkeypatch.setattr(QFileDialog, "getSaveFileName", select_export)
         monkeypatch.setattr(
             QMessageBox,
             "information",
@@ -595,20 +617,33 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
             assert expected[:, :, 2].any()
             if suffix == ".ubd.npz":
                 window.getExportUbdAction().trigger()
-                output = source.getUbdMaskPath()
-                assert not source.getMaskPath().exists()
+                expected_default = source.getUbdMaskPath()
+                title_key = "export_ubd_dialog_title"
+                filter_key = "export_ubd_filter"
                 with np.load(output, allow_pickle=False) as archive:
                     assert archive["image_type"].item() == "mask"
                     assert archive["mmpd"].item() == volume.getSpacingMm()[0]
                     written = archive["body_data"]
             else:
                 window.getExportAction().trigger()
-                output = source.getMaskPath()
-                assert not source.getUbdMaskPath().exists()
-                image = sitk.ReadImage(str(str(output)))
+                expected_default = source.getMaskPath()
+                title_key = "export_mask_dialog_title"
+                filter_key = "export_mask_filter"
+                verification = tmp_path / "verification.nii.gz"
+                verification.write_bytes(output.read_bytes())
+                image = sitk.ReadImage(str(verification))
                 written = np.transpose(sitk.GetArrayFromImage(image), (2, 1, 0))
             app.processEvents()
+            assert dialog_calls == [
+                (
+                    C_Localizer().translate(title_key, language),
+                    str(expected_default),
+                    C_Localizer().translate(filter_key, language),
+                )
+            ]
             np.testing.assert_array_equal(written, expected)
+            assert not source.getMaskPath().exists()
+            assert not source.getUbdMaskPath().exists()
             assert source.getAnnotationPath().is_file()
             assert len(messages) == 1
             assert str(output) in messages[0]
@@ -653,6 +688,11 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
 
         try:
             with monkeypatch.context() as patch:
+                patch.setattr(
+                    QFileDialog,
+                    "getSaveFileName",
+                    lambda *_args: (str(tmp_path / "export.ubd.npz"), ""),
+                )
                 patch.setattr(C_AnnotationExporter, "export", fail_export)
                 if failed_step == "save":
                     patch.setattr(window, "save_project", lambda *, notify: False)
@@ -676,15 +716,17 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
         finally:
             window.close()
 
-    # 验证 JSON 导出写入影像旁的标注路径。
+    # 另存 JSON 到选定目录，保留原自动保存路径及全部标注信息。
     @pytest.mark.parametrize("suffix", [".dcm", ".nii", ".nii.gz", ".ubd.npz"])
     @pytest.mark.parametrize("file_state", ["saved", "missing", "pending"])
-    def test_json_export_saves_annotation_project_beside_source(
+    @pytest.mark.parametrize("with_annotation_suffix", [False, True])
+    def test_json_export_saves_annotation_project_to_selected_path(
         self,
         tmp_path: I_FilePath,
         monkeypatch: MonkeyPatch,
         suffix: str,
         file_state: str,
+        with_annotation_suffix: bool,
     ) -> None:
         from med_image_seg.Concrete.Domain.Annotations.C_AnnotationProject import (
             C_AnnotationProject,
@@ -721,14 +763,22 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
         messages: list[str] = []
         saved_paths: list[I_FilePath] = []
         save = C_AnnotationProject.save
+        output = tmp_path / "另存目录" / "自定义标注.med-image-seg.json"
+        selected = output if with_annotation_suffix else output.with_name("自定义标注")
+        monkeypatch.setattr(
+            QFileDialog, "getSaveFileName", lambda *_args: (str(selected), "")
+        )
 
-        # 记录保存调用和路径，必要时检查闭合期间界面仍处于锁定状态。
+        # 记录自动保存与另存副本的目标，确认导出没有重定向项目。
         def record_save(
-            self: I_MutableAnnotationProject, path: I_FilePath
+            self: I_MutableAnnotationProject,
+            path: I_FilePath,
+            *,
+            delete_if_empty: bool = False,
         ) -> I_FilePath:
             assert isinstance(self, C_AnnotationProject)
             saved_paths.append(C_FilePath(path))
-            return save(self, path)
+            return save(self, path, delete_if_empty=delete_if_empty)
 
         try:
             for slice_index in (1, 3):
@@ -763,7 +813,7 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
             )
             window.getExportJsonAction().trigger()
             app.processEvents()
-            loaded = C_ProjectRepository().load(source.getAnnotationPath())
+            loaded = C_ProjectRepository().load(output)
             loaded.validate_volume(volume)
             assert loaded.getImageId() == window.requireProject().getImageId()
             assert (
@@ -779,7 +829,8 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
             np.testing.assert_array_equal(
                 loaded.to_mask(), window.requireProject().to_mask()
             )
-            assert saved_paths == [source.getAnnotationPath()]
+            assert saved_paths == [source.getAnnotationPath(), output]
+            assert window.getProjectPath() == source.getAnnotationPath()
             assert not window.getInternalDirty()
             assert not source.getMaskPath().exists()
             assert not source.getUbdMaskPath().exists()
@@ -791,7 +842,7 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
             assert len(messages) == 1
             assert messages[0] == C_Localizer().translate(
                 "export_annotations_complete_message",
-                path=str(source.getAnnotationPath()),
+                path=str(output),
             )
             assert QApplication.overrideCursor() is None
         finally:
@@ -827,6 +878,11 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
 
         try:
             with monkeypatch.context() as patch:
+                patch.setattr(
+                    QFileDialog,
+                    "getSaveFileName",
+                    lambda *_args: (str(tmp_path / "export.med-image-seg.json"), ""),
+                )
                 patch.setattr(C_AnnotationProject, "save", fail_save)
                 patch.setattr(
                     QMessageBox,
@@ -864,10 +920,263 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
             "information",
             lambda *_args: pytest.fail("no project must not report export success"),
         )
+        monkeypatch.setattr(
+            QFileDialog,
+            "getSaveFileName",
+            lambda *_args: pytest.fail("no project must not open a save dialog"),
+        )
         try:
             window.export_annotations()
             app.processEvents()
             assert not window.getExportJsonAction().isEnabled()
+        finally:
+            window.close()
+
+    # 取消另存为时禁止三个导出动作保存项目、创建文件或提示成功。
+    @pytest.mark.parametrize("suffix", [".nii.gz", ".ubd.npz", ".med-image-seg.json"])
+    def test_cancel_export_dialog_does_not_write_files(
+        self, tmp_path: I_FilePath, monkeypatch: MonkeyPatch, suffix: str
+    ) -> None:
+        from med_image_seg.Concrete.Presentation.Window import (
+            C_Qt_AnnotationMainWindow,
+        )
+
+        from .C_GuiFixtures import C_GuiFixtures
+
+        app = C_GuiFixtures().app()
+        source = C_GuiFixtures().source(tmp_path)
+        window = C_Qt_AnnotationMainWindow(sources=[])
+        window.setInternalLoadingSource(source)
+        window.volume_loaded(C_GuiFixtures().volume(source))
+        window._finish_loading_ui()
+        window.setInternalDirty(True)
+        previous_json = source.getAnnotationPath().read_bytes()
+        previous_status = window.getAutosaveStatus().text()
+        try:
+            with monkeypatch.context() as patch:
+                patch.setattr(QFileDialog, "getSaveFileName", lambda *_args: ("", ""))
+                patch.setattr(
+                    window,
+                    "save_project",
+                    lambda **_kwargs: pytest.fail("cancel must not save the project"),
+                )
+                patch.setattr(
+                    QMessageBox,
+                    "information",
+                    lambda *_args: pytest.fail("cancel must not report success"),
+                )
+                patch.setattr(
+                    QMessageBox,
+                    "critical",
+                    lambda *_args: pytest.fail("cancel must not report failure"),
+                )
+                if suffix == ".nii.gz":
+                    window.getExportAction().trigger()
+                elif suffix == ".ubd.npz":
+                    window.getExportUbdAction().trigger()
+                else:
+                    window.getExportJsonAction().trigger()
+                app.processEvents()
+                assert source.getAnnotationPath().read_bytes() == previous_json
+                assert window.getAutosaveStatus().text() == previous_status
+                assert window.getInternalDirty()
+                assert window.getProjectPath() == source.getAnnotationPath()
+                assert not source.getMaskPath().exists()
+                assert not source.getUbdMaskPath().exists()
+                assert QApplication.overrideCursor() is None
+        finally:
+            window.close()
+
+    # 补齐扩展名后目标已存在时，必须再次确认覆盖而不是静默替换。
+    @pytest.mark.parametrize("suffix", [".nii.gz", ".ubd.npz", ".med-image-seg.json"])
+    @pytest.mark.parametrize("overwrite", [False, True])
+    def test_export_confirms_overwrite_after_completing_suffix(
+        self,
+        tmp_path: I_FilePath,
+        monkeypatch: MonkeyPatch,
+        suffix: str,
+        overwrite: bool,
+    ) -> None:
+        from med_image_seg.Concrete.Presentation.Window import (
+            C_Qt_AnnotationMainWindow,
+        )
+
+        from .C_GuiFixtures import C_GuiFixtures
+
+        app = C_GuiFixtures().app()
+        source = C_GuiFixtures().source(tmp_path)
+        window = C_Qt_AnnotationMainWindow(sources=[])
+        window.setInternalLoadingSource(source)
+        window.volume_loaded(C_GuiFixtures().volume(source))
+        window._finish_loading_ui()
+        output = tmp_path / f"自定义导出{suffix}"
+        output.write_bytes(b"existing-export")
+        previous_json = source.getAnnotationPath().read_bytes()
+        confirmations: list[str] = []
+        messages: list[str] = []
+
+        # 拦截补后缀的覆盖确认，保留按钮默认值并模拟用户决定。
+        def confirm_overwrite(
+            _parent: QWidget,
+            _title: str,
+            message: str,
+            _buttons: QMessageBox.StandardButton,
+            default_button: QMessageBox.StandardButton,
+        ) -> QMessageBox.StandardButton:
+            assert default_button == QMessageBox.StandardButton.No
+            confirmations.append(message)
+            return (
+                QMessageBox.StandardButton.Yes
+                if overwrite
+                else QMessageBox.StandardButton.No
+            )
+
+        monkeypatch.setattr(
+            QFileDialog,
+            "getSaveFileName",
+            lambda *_args: (str(tmp_path / "自定义导出"), ""),
+        )
+        monkeypatch.setattr(QMessageBox, "question", confirm_overwrite)
+        monkeypatch.setattr(
+            QMessageBox,
+            "information",
+            lambda _parent, _title, message: messages.append(message),
+        )
+        monkeypatch.setattr(
+            QMessageBox,
+            "critical",
+            lambda _parent, _title, message: pytest.fail(message),
+        )
+        try:
+            if suffix == ".nii.gz":
+                window.getExportAction().trigger()
+            elif suffix == ".ubd.npz":
+                window.getExportUbdAction().trigger()
+            else:
+                window.getExportJsonAction().trigger()
+            app.processEvents()
+            assert len(confirmations) == 1
+            assert str(output) in confirmations[0]
+            assert len(messages) == int(overwrite)
+            if overwrite:
+                assert output.read_bytes() != b"existing-export"
+                assert str(output) in messages[0]
+            else:
+                assert output.read_bytes() == b"existing-export"
+                assert source.getAnnotationPath().read_bytes() == previous_json
+            assert window.getProjectPath() == source.getAnnotationPath()
+            assert not source.getMaskPath().exists()
+            assert not source.getUbdMaskPath().exists()
+            assert QApplication.overrideCursor() is None
+        finally:
+            window.close()
+
+    # 区分自动保存和另存文件失败，核验导出失败不会切换当前项目路径。
+    def test_json_export_reports_selected_path_write_failure(
+        self, tmp_path: I_FilePath, monkeypatch: MonkeyPatch
+    ) -> None:
+        from med_image_seg.Concrete.Domain.Annotations.C_AnnotationProject import (
+            C_AnnotationProject,
+        )
+        from med_image_seg.Concrete.Presentation.Window import (
+            C_Qt_AnnotationMainWindow,
+        )
+
+        from .C_GuiFixtures import C_GuiFixtures
+
+        app = C_GuiFixtures().app()
+        source = C_GuiFixtures().source(tmp_path)
+        window = C_Qt_AnnotationMainWindow(sources=[])
+        window.setInternalLoadingSource(source)
+        window.volume_loaded(C_GuiFixtures().volume(source))
+        window._finish_loading_ui()
+        window.setInternalDirty(True)
+        output = tmp_path / "export.med-image-seg.json"
+        errors: list[str] = []
+        save = C_AnnotationProject.save
+
+        # 允许原项目自动保存，仅让用户选择的导出副本写入失败。
+        def fail_selected_save(
+            self: I_MutableAnnotationProject,
+            path: I_FilePath,
+            *,
+            delete_if_empty: bool = False,
+        ) -> I_FilePath:
+            assert isinstance(self, C_AnnotationProject)
+            if path == output:
+                raise OSError("selected export path is not writable")
+            return save(self, path, delete_if_empty=delete_if_empty)
+
+        try:
+            with monkeypatch.context() as patch:
+                patch.setattr(C_AnnotationProject, "save", fail_selected_save)
+                patch.setattr(
+                    QFileDialog, "getSaveFileName", lambda *_args: (str(output), "")
+                )
+                patch.setattr(
+                    QMessageBox,
+                    "critical",
+                    lambda _parent, _title, message: errors.append(message),
+                )
+                patch.setattr(
+                    QMessageBox,
+                    "information",
+                    lambda *_args: pytest.fail("failed export must not report success"),
+                )
+                window.getExportJsonAction().trigger()
+                app.processEvents()
+                assert errors == ["selected export path is not writable"]
+                assert window.getProjectPath() == source.getAnnotationPath()
+                assert source.getAnnotationPath().is_file()
+                assert not output.exists()
+                assert not window.getInternalDirty()
+                assert QApplication.overrideCursor() is None
+        finally:
+            window.close()
+
+    # 保留已有 JSON 的任意合法文件名，导出后继续在原文件自动保存编辑。
+    def test_json_export_preserves_name_and_original_autosave(
+        self, tmp_path: I_FilePath, monkeypatch: MonkeyPatch
+    ) -> None:
+        from med_image_seg.Concrete.Domain.Geometry.C_PointList import C_PointList
+        from med_image_seg.Concrete.Presentation.Window import (
+            C_Qt_AnnotationMainWindow,
+        )
+        from med_image_seg.Concrete.Storage.Projects.C_ProjectRepository import (
+            C_ProjectRepository,
+        )
+
+        from .C_GuiFixtures import C_GuiFixtures
+
+        app = C_GuiFixtures().app()
+        source = C_GuiFixtures().source(tmp_path)
+        window = C_Qt_AnnotationMainWindow(sources=[])
+        window.setInternalLoadingSource(source)
+        window.volume_loaded(C_GuiFixtures().volume(source))
+        window._finish_loading_ui()
+        output = tmp_path / "自定义名称.json"
+        monkeypatch.setattr(
+            QFileDialog, "getSaveFileName", lambda *_args: (str(output), "")
+        )
+        monkeypatch.setattr(QMessageBox, "information", lambda *_args: None)
+        monkeypatch.setattr(
+            QMessageBox,
+            "critical",
+            lambda _parent, _title, message: pytest.fail(message),
+        )
+        try:
+            window.getExportJsonAction().trigger()
+            app.processEvents()
+            assert output.is_file()
+            assert not output.with_name("自定义名称.json.med-image-seg.json").exists()
+            exported = output.read_bytes()
+            window.set_slice(1)
+            window.add_polygon(C_PointList([(2, 2), (8, 2), (5, 8)]), "add")
+            assert window.getProjectPath() == source.getAnnotationPath()
+            saved = C_ProjectRepository().load(source.getAnnotationPath())
+            assert saved.annotation(1).getPolygonCount() == 1
+            assert output.read_bytes() == exported
+            assert not window.getInternalDirty()
         finally:
             window.close()
 
@@ -920,6 +1229,36 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
             canvas.cancel_polygon()
             assert canvas.getDraftPointCount() == 0
             assert canvas.getPolygonPointCount(0) == 3
+            app.processEvents()
+        finally:
+            canvas.close()
+
+    # 验证首个草稿点以不可编辑的黄色圆点显示，避免零长度路径不可见。
+    def test_first_draft_point_displays_yellow_position_marker(self) -> None:
+        from med_image_seg.Concrete.Domain.Geometry.C_PointList import C_PointList
+        from med_image_seg.Concrete.Presentation.Canvas.C_Qt_SliceCanvas import (
+            C_Qt_SliceCanvas,
+        )
+
+        app = self._app()
+        canvas = C_Qt_SliceCanvas()
+        try:
+            canvas.setDraftPoints(C_PointList(((23.0, 31.0),)))
+            canvas._update_draft()
+
+            draft_item = canvas.requireInternalDraftItem()
+            child_items = draft_item.childItems()
+            assert len(child_items) == 1
+            marker = child_items[0]
+            assert isinstance(marker, QGraphicsEllipseItem)
+            assert marker.pos() == QPointF(23.0, 31.0)
+            assert marker.rect() == QRectF(-3.5, -3.5, 7.0, 7.0)
+            assert marker.brush().color().name() == "#ffd166"
+            assert marker.flags() & (
+                QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations
+            )
+            assert not marker.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsMovable
+            assert not marker.flags() & QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
             app.processEvents()
         finally:
             canvas.close()

@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
+    QFileDialog,
     QGraphicsEllipseItem,
     QGraphicsPathItem,
     QGraphicsPixmapItem,
@@ -1966,6 +1967,11 @@ class C_TestNumberedAnnotations(
                 C_PointList(C_NumberedAnnotationsFixtures().polygon()), "add"
             )
         messages = []
+        monkeypatch.setattr(
+            QFileDialog,
+            "getSaveFileName",
+            lambda _parent, _title, directory, _filter: (directory, ""),
+        )
         monkeypatch.setattr(
             QMessageBox, "information", lambda *args: messages.append(args[2])
         )

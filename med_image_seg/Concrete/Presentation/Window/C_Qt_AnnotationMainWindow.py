@@ -1742,38 +1742,60 @@ class C_Qt_AnnotationMainWindow(
         )
         return True
 
-    # 检查导出条件并执行掩码写入，只在成功后显示完成提示。
+    # 选择 NIfTI 文件名和位置后执行掩码写入。
     def export_mask(self) -> None:
-        if self.getCurrentSource() is not None:
-            self._export_mask(self.requireCurrentSource().getMaskPath())
+        from ..Persistence.C_Qt_ExportService import C_Qt_ExportService
 
-    # 导出包含插值的 UBD 掩码，复用统一的导出和错误提示流程。
+        if self.getCurrentSource() is None or self.getExternalPreviewActive():
+            return
+        service = C_Qt_ExportService()
+        output = service.select_output(
+            self,
+            self.requireCurrentSource().getMaskPath(),
+            self._text("export_mask_dialog_title"),
+            self._text("export_mask_filter"),
+            ".nii.gz",
+        )
+        if output is not None:
+            self._export_mask(output)
+
+    # 选择 UBD 文件名和位置后导出包含插值的掩码。
     def export_ubd_mask(self) -> None:
-        if self.getCurrentSource() is not None:
-            self._export_mask(self.requireCurrentSource().getUbdMaskPath())
+        from ..Persistence.C_Qt_ExportService import C_Qt_ExportService
 
-    # 保存当前编号的标注 JSON，并沿用空编号文件的删除策略。
+        if self.getCurrentSource() is None or self.getExternalPreviewActive():
+            return
+        service = C_Qt_ExportService()
+        output = service.select_output(
+            self,
+            self.requireCurrentSource().getUbdMaskPath(),
+            self._text("export_ubd_dialog_title"),
+            self._text("export_ubd_filter"),
+            ".ubd.npz",
+        )
+        if output is not None:
+            self._export_mask(output)
+
+    # 选择 JSON 文件名和位置后导出当前编号标注。
     def export_annotations(self) -> None:
+        from ..Persistence.C_Qt_ExportService import C_Qt_ExportService
+
         if (
             self.getProject() is None
             or self.getProjectPath() is None
             or self.getExternalPreviewActive()
         ):
             return
-        if not self.save_project(notify=True, force=True):
-            return
-        QMessageBox.information(
+        service = C_Qt_ExportService()
+        output = service.select_output(
             self,
-            self._text("export_complete_title"),
-            self._text(
-                "export_annotations_empty_message"
-                if self.getAnnotationIndex() > 0
-                and (not self.requireProject().getHasPolygons())
-                else "export_annotations_complete_message",
-                index=self.getAnnotationIndex(),
-                path=str(self.getProjectPath()),
-            ),
+            self.requireProjectPath(),
+            self._text("export_annotations_dialog_title"),
+            self._text("export_annotations_filter"),
+            ".med-image-seg.json",
         )
+        if output is not None:
+            service.export_annotations(self, output)
 
     # 检查导出条件并执行掩码写入，只在成功后显示完成提示。
     def _export_mask(self, output: I_FilePath) -> None:

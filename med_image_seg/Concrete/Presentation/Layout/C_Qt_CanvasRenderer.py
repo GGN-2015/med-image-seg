@@ -3,9 +3,10 @@ from __future__ import annotations
 from typing import final
 
 from PySide6.QtCore import QPointF, QRectF, SignalInstance
-from PySide6.QtGui import QColor, QPainterPath, QPen
+from PySide6.QtGui import QBrush, QColor, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QGraphicsEllipseItem,
+    QGraphicsItem,
     QGraphicsPathItem,
     QGraphicsPixmapItem,
     QGraphicsPolygonItem,
@@ -56,7 +57,15 @@ class C_Qt_CanvasRenderer(
         path = QPainterPath(context.getDraftPoint(0))
         for index in range(1, context.getDraftPointCount()):
             path.lineTo(context.getDraftPoint(index))
-        context.setInternalDraftItem(
+        draft_item = (
             context.getHost().scene().addPath(path, QPen(QColor("#ffd166"), 2.0))
         )
+        first_point_marker = QGraphicsEllipseItem(-3.5, -3.5, 7.0, 7.0, draft_item)
+        first_point_marker.setPos(context.getDraftPoint(0))
+        first_point_marker.setPen(QPen(QColor("#ffd166"), 1.0))
+        first_point_marker.setBrush(QBrush(QColor("#ffd166")))
+        first_point_marker.setFlag(
+            QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True
+        )
+        context.setInternalDraftItem(draft_item)
         context.requireInternalDraftItem().setZValue(3)

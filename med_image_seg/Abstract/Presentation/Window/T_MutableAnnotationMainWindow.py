@@ -546,15 +546,15 @@ class T_MutableAnnotationMainWindow(
     @abstractmethod
     def save_project(self, *, notify: bool = False, force: bool = False) -> bool: ...
 
-    # 检查导出条件并执行掩码写入，只在成功后显示完成提示。
+    # 选择 NIfTI 文件名和位置后执行掩码写入。
     @abstractmethod
     def export_mask(self) -> None: ...
 
-    # 导出包含插值的 UBD 掩码，复用统一的导出和错误提示流程。
+    # 选择 UBD 文件名和位置后导出包含插值的掩码。
     @abstractmethod
     def export_ubd_mask(self) -> None: ...
 
-    # 保存当前编号的标注 JSON，并沿用空编号文件的删除策略。
+    # 选择 JSON 文件名和位置后导出当前编号标注。
     @abstractmethod
     def export_annotations(self) -> None: ...
 

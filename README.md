@@ -47,7 +47,7 @@ uv run med-image-seg --language zh --image "D:\images\scan.nii.gz"
 
 ## Annotation file locations
 
-Annotations are always stored beside the source image:
+Autosaved annotations are always stored beside the source image:
 
 | Image type | Annotation JSON | NIfTI mask | UBD mask |
 | --- | --- | --- | --- |
@@ -91,9 +91,10 @@ to switch. Typing a multi-digit number does not load each intermediate number.
   and restore the displayed number. The annotation number is locked in read-only
   observation mode; return to Add or Erase before selecting another number.
 
-The JSON export action saves the selected number and follows its empty-file
-policy. NIfTI and UBD exports use the selected annotation's mask and retain their
-existing output filenames.
+The JSON export action exports the selected number and follows its empty-file
+policy. All three export actions open a Save As dialog to choose the output
+filename and directory. The existing filenames are suggestions, not fixed output
+locations; exporting does not change the annotation's autosave path.
 
 ## GUI controls
 
@@ -113,11 +114,12 @@ existing output filenames.
 - Empty slices between two keyframes are interpolated dynamically with signed distance fields and displayed as translucent blue regions.
 - A read-only coverage bar below the slice slider highlights slices whose final mask is nonempty, including machine/manual contours and interpolation. Empty and forced-empty slices remain gray, so coverage can contain multiple separate intervals. Each slice is aligned to the native slider handle position, including its end margins; hiding the interpolation preview does not change coverage. Coverage is recalculated after annotation changes, not on every slice navigation or window/level adjustment.
 - Machine add/erase contours use orange/purple; manual add/erase contours use green/red. Machine and manual regions on the same slice are processed independently and then combined by union, so both contribute to the final mask.
-- `E` or the `.nii.gz` toolbar action exports a 3D NIfTI mask including interpolated slices.
-- The adjacent `.ubd.npz` toolbar action exports the same interpolated 3D mask in UBD format, preserving the L/P/S voxel array and isotropic spacing. UBD does not store the physical origin or direction.
-- The `.med-image-seg.json` toolbar action explicitly saves the current annotation project beside the source image and shows its path. It uses the same JSON format, atomic replacement, and rolling backup as autosave, and rewrites the file even when there are no pending edits. The JSON stores contours and review state rather than a rasterized mask; interpolated slices are reconstructed when needed.
+- `E` or the `.nii.gz` toolbar action opens Save As and exports a 3D NIfTI mask including interpolated slices to the chosen path.
+- The adjacent `.ubd.npz` toolbar action opens Save As and exports the same interpolated 3D mask in UBD format, preserving the L/P/S voxel array and isotropic spacing. UBD does not store the physical origin or direction.
+- The `.med-image-seg.json` toolbar action opens Save As and writes the current annotation project to the chosen file. It uses the same JSON format, atomic replacement, and rolling backup as autosave. The original autosave location remains unchanged. The JSON stores contours and review state rather than a rasterized mask; interpolated slices are reconstructed when needed.
+- Canceling any Save As dialog leaves files and project state unchanged. Missing format suffixes are added automatically; existing `.json` names, including numbered annotation names, are preserved. Replacing an existing file requires confirmation.
 
-NIfTI masks are first written to an ASCII-only temporary path, then copied beside the source image and atomically replaced. This supports Unicode output paths on Windows without exposing existing masks to partial writes. Temporary files are cleaned up after both successful and failed exports.
+NIfTI masks are first written to an ASCII-only temporary path, then copied to the selected destination and atomically replaced. This supports Unicode output paths on Windows without exposing existing masks to partial writes. Temporary files are cleaned up after both successful and failed exports.
 
 ## Read-only orthogonal observation
 

@@ -52,10 +52,15 @@ class T_TestGui(ABC, Generic[T_MonkeyPatch]):
         self, tmp_path: I_FilePath, monkeypatch: T_MonkeyPatch, point_count: int
     ) -> None: ...
 
-    # 触发工具栏导出动作，核验文件包含自动插值掩码。
+    # 选择自定义路径导出掩码，核验格式、插值内容和中英保存对话框。
     @abstractmethod
     def test_export_toolbar_actions_write_interpolated_masks(
-        self, tmp_path: I_FilePath, monkeypatch: T_MonkeyPatch, suffix: str
+        self,
+        tmp_path: I_FilePath,
+        monkeypatch: T_MonkeyPatch,
+        suffix: str,
+        with_suffix: bool,
+        language: str,
     ) -> None: ...
 
     # 模拟 UBD 导出失败，验证没有错误的成功提示。
@@ -64,14 +69,15 @@ class T_TestGui(ABC, Generic[T_MonkeyPatch]):
         self, tmp_path: I_FilePath, monkeypatch: T_MonkeyPatch, failed_step: str
     ) -> None: ...
 
-    # 验证 JSON 导出写入影像旁的标注路径。
+    # 另存 JSON 到选定目录，保留原自动保存路径及全部标注信息。
     @abstractmethod
-    def test_json_export_saves_annotation_project_beside_source(
+    def test_json_export_saves_annotation_project_to_selected_path(
         self,
         tmp_path: I_FilePath,
         monkeypatch: T_MonkeyPatch,
         suffix: str,
         file_state: str,
+        with_annotation_suffix: bool,
     ) -> None: ...
 
     # 模拟 JSON 写盘失败，核验只报告错误而不提示导出成功。
@@ -86,9 +92,41 @@ class T_TestGui(ABC, Generic[T_MonkeyPatch]):
         self, monkeypatch: T_MonkeyPatch
     ) -> None: ...
 
+    # 取消另存为时禁止三个导出动作保存项目、创建文件或提示成功。
+    @abstractmethod
+    def test_cancel_export_dialog_does_not_write_files(
+        self, tmp_path: I_FilePath, monkeypatch: T_MonkeyPatch, suffix: str
+    ) -> None: ...
+
+    # 补齐扩展名后目标已存在时，必须再次确认覆盖而不是静默替换。
+    @abstractmethod
+    def test_export_confirms_overwrite_after_completing_suffix(
+        self,
+        tmp_path: I_FilePath,
+        monkeypatch: T_MonkeyPatch,
+        suffix: str,
+        overwrite: bool,
+    ) -> None: ...
+
+    # 区分自动保存和另存文件失败，核验导出失败不会切换当前项目路径。
+    @abstractmethod
+    def test_json_export_reports_selected_path_write_failure(
+        self, tmp_path: I_FilePath, monkeypatch: T_MonkeyPatch
+    ) -> None: ...
+
+    # 保留已有 JSON 的任意合法文件名，导出后继续在原文件自动保存编辑。
+    @abstractmethod
+    def test_json_export_preserves_name_and_original_autosave(
+        self, tmp_path: I_FilePath, monkeypatch: T_MonkeyPatch
+    ) -> None: ...
+
     # 验证画布按项查询不暴露列表，返回点的修改不会影响内部坐标。
     @abstractmethod
     def test_canvas_collection_queries_protect_internal_state(self) -> None: ...
+
+    # 验证首个草稿点以不可编辑的黄色圆点显示，避免零长度路径不可见。
+    @abstractmethod
+    def test_first_draft_point_displays_yellow_position_marker(self) -> None: ...
 
     # 模拟顶点拖动，验证坐标更新并提交多边形变更信号。
     @abstractmethod

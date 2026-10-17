@@ -28,6 +28,30 @@ class C_Localizer(I_Localizer):
                 "en": "Export annotations (.med-image-seg.json)",
                 "zh": "导出标注（.med-image-seg.json）",
             },
+            "export_mask_dialog_title": {
+                "en": "Save NIfTI mask",
+                "zh": "保存 NIfTI 掩码",
+            },
+            "export_mask_filter": {
+                "en": "NIfTI mask (*.nii.gz)",
+                "zh": "NIfTI 掩码 (*.nii.gz)",
+            },
+            "export_ubd_dialog_title": {
+                "en": "Save UBD mask",
+                "zh": "保存 UBD 掩码",
+            },
+            "export_ubd_filter": {
+                "en": "UBD mask (*.ubd.npz)",
+                "zh": "UBD 掩码 (*.ubd.npz)",
+            },
+            "export_annotations_dialog_title": {
+                "en": "Save annotations",
+                "zh": "保存标注",
+            },
+            "export_annotations_filter": {
+                "en": "med-image-seg annotation (*.med-image-seg.json)",
+                "zh": "med-image-seg 标注 (*.med-image-seg.json)",
+            },
             "image_collection": {"en": "Image collection", "zh": "影像集合"},
             "import_files": {"en": "Import image files", "zh": "导入影像文件"},
             "import_dicom": {"en": "Import DICOM folder", "zh": "导入 DICOM 目录"},
@@ -418,6 +442,14 @@ class C_Localizer(I_Localizer):
                 "zh": "自动保存：{time}\n{path}（含 .bak）",
             },
             "export_failed_title": {"en": "Export failed", "zh": "导出失败"},
+            "export_overwrite_title": {
+                "en": "Replace existing export?",
+                "zh": "覆盖已有导出文件？",
+            },
+            "export_overwrite_message": {
+                "en": "{path}\n\nThis file already exists. Replace it?",
+                "zh": "{path}\n\n文件已存在，是否覆盖？",
+            },
             "export_complete_title": {"en": "Export complete", "zh": "导出完成"},
             "export_complete_message": {
                 "en": "{path}\n\nGenerated {count} intermediate interpolated slices.",
