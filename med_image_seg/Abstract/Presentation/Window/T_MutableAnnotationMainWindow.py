@@ -15,6 +15,7 @@ from ...Domain.Imaging.I_ImageSource import I_ImageSource
 from ...Domain.Imaging.I_MedicalVolume import I_MedicalVolume
 from ...Domain.ViewState.I_ExternalMaskViewState import I_ExternalMaskViewState
 from ...Storage.Paths.I_FilePath import I_FilePath
+from ..Progress.I_ProgressDialogSettings import I_ProgressDialogSettings
 from .T_AnnotationMainWindow import T_AnnotationMainWindow
 
 if TYPE_CHECKING:
@@ -138,6 +139,10 @@ class T_MutableAnnotationMainWindow(
     @abstractmethod
     def setLoadingDialog(self, value: T_Dialog | None) -> None: ...
 
+    # 登记锁定操作的进度窗口，结束时清空以避免后续保存误入后台。
+    @abstractmethod
+    def setBusyProgressDialog(self, value: T_Dialog | None) -> None: ...
+
     # 记录最近一次影像加载错误。
     @abstractmethod
     def setInternalLoadError(self, value: str | None) -> None: ...
@@ -259,6 +264,10 @@ class T_MutableAnnotationMainWindow(
     # 记录载入选中影像按钮。
     @abstractmethod
     def setLoadButton(self, value: T_Button) -> None: ...
+
+    # 登记左侧的卸载影像按钮，供加载和模式切换统一管理状态。
+    @abstractmethod
+    def setUnloadImageButton(self, value: T_Button) -> None: ...
 
     # 记录切片画布。
     @abstractmethod
@@ -462,6 +471,10 @@ class T_MutableAnnotationMainWindow(
     @abstractmethod
     def load_selected_source(self) -> None: ...
 
+    # 保存并关闭当前影像，从导入列表移除它；忙碌或保存失败时保持现状。
+    @abstractmethod
+    def unload_imported_image(self) -> bool: ...
+
     # 回收影像加载线程，关闭进度提示并恢复主窗口和附属视图。
     @abstractmethod
     def load_thread_finished(self) -> None: ...
@@ -644,10 +657,13 @@ class T_MutableAnnotationMainWindow(
     @abstractmethod
     def _windowed_plane(self, plane: NDArray[np.float32]) -> NDArray[np.uint8]: ...
 
-    # 临时禁用主界面、附属窗口和快捷键，在闭合流程结束后恢复原状态。
+    # 把界面锁定和可选进度委托给交互服务，适用于闭合及另存为等耗时操作。
     @abstractmethod
     def _polygon_busy_ui(
-        self, status_key: str = "closing_polygon_status"
+        self,
+        status_key: str = "closing_polygon_status",
+        *,
+        progress_settings: I_ProgressDialogSettings | None = None,
     ) -> AbstractContextManager[None]: ...
 
     # 检查导出条件并执行掩码写入，只在成功后显示完成提示。

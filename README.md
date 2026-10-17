@@ -98,7 +98,19 @@ locations; exporting does not change the annotation's autosave path.
 
 ## GUI controls
 
-- Loading and resampling run on a background thread. A modal progress indicator is visible and the main GUI is disabled while loading.
+- Imported image names of at most 10 characters, including extensions, display
+  as `[FORMAT] parent-folder/filename` to distinguish short names such as `CT.nii`.
+  Longer filenames and DICOM series labels keep their existing display format.
+  Hovering over an entry still shows its full path.
+- **Unload imported image**, below **Load selected image** in the left panel,
+  saves and closes the currently open image, clears all three views, and removes
+  that image from the imported list without deleting its original files. It
+  removes the open image even if another list row is selected, and does not
+  automatically open a remaining image. With no image open or while an operation
+  is busy, the button is disabled. A failed annotation save cancels unloading.
+  Images can be imported again later; external-mask preview is cleared without
+  writing annotation JSON during preview.
+- Loading and resampling run on a background thread. A modal estimated-percentage progress indicator is visible and the main GUI is disabled while loading.
 - Left-click adds vertices. Right-click, double-click, or `Space` closes a polygon.
 - While a polygon is closing, the interface and shortcuts are disabled and a waiting cursor is shown until the annotation update, JSON save, and view refresh finish. The previous enabled states are restored even if an error occurs; input received during the operation is discarded rather than replayed afterward.
 - Drag a colored vertex to reshape an existing polygon.
@@ -120,6 +132,81 @@ locations; exporting does not change the annotation's autosave path.
 - Canceling any Save As dialog leaves files and project state unchanged. Missing format suffixes are added automatically; existing `.json` names, including numbered annotation names, are preserved. Replacing an existing file requires confirmation.
 
 NIfTI masks are first written to an ASCII-only temporary path, then copied to the selected destination and atomically replaced. This supports Unicode output paths on Windows without exposing existing masks to partial writes. Temporary files are cleaned up after both successful and failed exports.
+
+## Estimated progress and operation profiling
+
+Window initialization, image loading/resampling, external-mask loading,
+polygon closure, and mask Save As operations show estimated progress using
+`fake-process-estimation`.
+Progress dialogs refresh every 100 ms while background work runs, display
+elapsed and expected durations, and support both English and Chinese. The
+percentage is explicitly labeled as an estimate, not a measurement of completed
+voxels or bytes. It stays below 100%
+until the real operation succeeds, including when an operation exceeds its
+expected duration; errors never report successful completion. Initialization of
+the Qt window remains on the GUI thread, and the startup dialog does not cover
+Python's earlier package imports.
+
+Expected duration is calibrated independently for each operation from its latest
+20 successful samples. Before history is available, window initialization uses a
+3-second initial estimate, image loading uses 30 seconds, external-mask loading
+uses 10 seconds, polygon closure uses 2 seconds, and mask exports use 10 seconds.
+NIfTI and UBD exports maintain separate estimates. Failure durations are
+recorded but are not used for calibration. Each operation retains up to 128
+samples.
+
+Closing a polygon with Space, the close button, right-click, or double-click
+shows progress for the complete add/save/refresh operation. Polygon updates,
+JSON writes, and mask-coverage calculation run sequentially in background tasks
+while the GUI thread continues to paint and update the percentage. Qt graphics
+remain on the GUI thread. The editor stays locked until the complete operation
+finishes, and callers still wait for its result before switching images, modes,
+or annotation files. Failed saves retain unsaved changes and never report 100%.
+
+After choosing a destination for a `.nii.gz` or `.ubd.npz` mask, Save As shows
+progress covering pending annotation saves, interpolated 3D mask generation,
+compression, and writing the selected file. These data operations run in
+background tasks while the GUI remains locked against editing and duplicate
+exports. Successful completion or failure restores the previous UI state,
+including read-only observation mode. Canceling the file chooser starts no
+progress or background work. Export formats, Unicode-path handling, and the
+original annotation autosave path are unchanged.
+
+Profiling also records image reading, external-mask processing, JSON saves,
+mask exports, and busy mode transitions. Outside the workflows described above,
+recording a duration does not itself move an operation to a background thread
+or add a progress dialog.
+
+History is stored separately from image and annotation files in a local SQLite
+database:
+
+- Windows: `%LOCALAPPDATA%\med-image-seg\profiling.sqlite3`.
+- macOS: `~/Library/Application Support/med-image-seg/profiling.sqlite3`.
+- Linux: `$XDG_STATE_HOME/med-image-seg/profiling.sqlite3`, or
+  `~/.local/state/med-image-seg/profiling.sqlite3` when the variable is unset.
+- Set `MED_IMAGE_SEG_PROFILE_PATH` to use a different database file.
+
+The `operation_samples` table contains `operation`, `elapsed_seconds`, `success`,
+and `finished_at` (UTC), plus an internal sample ID. Operation names include
+`startup.window`, `volume.load.nifti`, `volume.read`, `external-mask.load`,
+`external-mask.read`, `polygon.close`, `annotations.save`, `mask.export.nifti`,
+`mask.export.ubd`, `ui.mask.export.nifti`, and `ui.mask.export.ubd`. End-to-end
+loading/export durations and worker durations are separate measurements, not
+additive phases. No image paths, patient identifiers,
+voxel data, or polygon coordinates are stored. Missing, damaged, locked, or
+unwritable profiling files fall back to initial estimates without blocking image
+operations or changing annotation formats. Deleting the database resets the
+learned timings.
+
+For example, inspect successful-operation durations with a SQLite client:
+
+```sql
+SELECT operation, COUNT(*) AS samples, AVG(elapsed_seconds) AS mean_seconds,
+       MAX(elapsed_seconds) AS slowest_seconds
+FROM operation_samples
+WHERE success = 1
+GROUP BY operation;
+```
 
 ## Read-only orthogonal observation
 

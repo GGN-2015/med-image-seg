@@ -63,6 +63,9 @@ from ....Abstract.Presentation.Navigation.T_MutableMaskCoverageBar import (
 from ....Abstract.Presentation.Observation import (
     T_MutableOrthogonalSliceWindow,
 )
+from ....Abstract.Presentation.Progress.I_ProgressDialogSettings import (
+    I_ProgressDialogSettings,
+)
 from ....Abstract.Presentation.Window.T_MutableAnnotationMainWindow import (
     T_MutableAnnotationMainWindow,
 )
@@ -128,7 +131,7 @@ class C_Qt_InteractionService(
         QPointF,
     ]
 ):
-    # 临时禁用主界面、附属窗口和快捷键，在闭合流程结束后恢复原状态。
+    # 锁定主界面和快捷键，按任务配置显示进度，结束后恢复原状态。
     @contextmanager
     def polygon_busy_ui(
         self,
@@ -186,7 +189,15 @@ class C_Qt_InteractionService(
             QPointF,
         ],
         status_key: str = "closing_polygon_status",
+        *,
+        progress_settings: I_ProgressDialogSettings | None = None,
     ) -> Iterator[None]:
+        from ...Diagnostics.Progress.C_OperationProgressFactory import (
+            C_OperationProgressFactory,
+        )
+        from ..Progress.C_ProgressDialogSettings import C_ProgressDialogSettings
+        from ..Progress.C_Qt_EstimatedProgressDialog import C_Qt_EstimatedProgressDialog
+
         was_enabled = context.getHost().isEnabled()
         action_states = [
             (action, action.isEnabled())
@@ -207,12 +218,49 @@ class C_Qt_InteractionService(
             shortcut.setEnabled(False)
         context.getHost().statusBar().showMessage(context._text(status_key))
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        dialog = None
+        progress = None
         try:
+            settings = progress_settings
+            if settings is None and status_key == "closing_polygon_status":
+                settings = C_ProgressDialogSettings(
+                    "polygon.close", "closing_polygon_title", 2.0
+                )
+            if settings is not None:
+                dialog = C_Qt_EstimatedProgressDialog(
+                    context._text(status_key),
+                    context._text(settings.getTitleKey()),
+                    settings.getOperation(),
+                    default_seconds=settings.getDefaultSeconds(),
+                    language=context.getLanguage(),
+                    parent=context.getHost(),
+                )
+                context.setBusyProgressDialog(dialog)
+                dialog.show()
+            else:
+                progress = C_OperationProgressFactory().start(f"ui.{status_key}", 2.0)
             QApplication.processEvents(
                 QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents
             )
             yield
+        except BaseException:
+            if dialog is not None:
+                dialog.reject()
+            if progress is not None:
+                progress.finish(False)
+            raise
+        else:
+            if dialog is not None and not dialog.getOperationProgress().getFinished():
+                if context.getInternalDirty():
+                    dialog.reject()
+                else:
+                    dialog.accept()
+            if progress is not None:
+                progress.finish(True)
         finally:
+            context.setBusyProgressDialog(None)
+            if dialog is not None:
+                dialog.deleteLater()
             try:
                 QApplication.processEvents()
             finally:

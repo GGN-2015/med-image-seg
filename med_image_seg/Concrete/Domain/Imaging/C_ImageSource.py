@@ -94,15 +94,17 @@ class C_ImageSource(I_ImageSource):
             f"{self.getAnnotationPath().getStem()}-{index}.json"
         )
 
-    # 返回影像列表中的显示名称。
+    # 为不超过十个字符的文件名补充父目录，避免短名称混淆；DICOM 保留序列计数。
     def getDisplayName(self) -> str:
         from ...Storage.Paths.C_SourcePathRules import C_SourcePathRules
 
+        label = self.getPath().getName()
         if self.getKind() == E_SourceKind.DICOM:
-            label = self.getPath().getName()
             count = sum(
                 C_SourcePathRules().is_dicom_candidate(item)
                 for item in self.getPath().iterdir()
             )
             return f"[DICOM] {label}  |  {count} files"
-        return f"[{self.getKind().value.upper()}] {self.getPath().getName()}"
+        if len(label) <= 10:
+            label = f"{self.getPath().getParent().getName()}/{label}"
+        return f"[{self.getKind().value.upper()}] {label}"

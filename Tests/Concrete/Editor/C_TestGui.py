@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from threading import Event
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QRectF, QThread, QTimer, SignalInstance
@@ -202,6 +203,42 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
         ]
         window.close()
 
+    # 同名影像按父目录区分，长文件名、列表索引和完整路径提示不变。
+    def test_source_list_disambiguates_short_filenames(
+        self, tmp_path: I_FilePath
+    ) -> None:
+        from med_image_seg.Concrete.Presentation.Window import (
+            C_Qt_AnnotationMainWindow,
+        )
+
+        from .C_GuiFixtures import C_GuiFixtures
+
+        app = C_GuiFixtures().app()
+        window = C_Qt_AnnotationMainWindow(sources=[])
+        try:
+            first, second = tmp_path / "case-a", tmp_path / "病例乙"
+            first.mkdir()
+            second.mkdir()
+            paths = [first / "CT.nii", second / "CT.nii", first / "1234567.nii"]
+            for path in paths:
+                path.write_bytes(b"original image")
+            window.add_sources(paths)
+            app.processEvents()
+            expected = (
+                "[NIFTI] case-a/CT.nii",
+                "[NIFTI] 病例乙/CT.nii",
+                "[NIFTI] 1234567.nii",
+            )
+            assert window.getSourceList().count() == 3
+            for index, label in enumerate(expected):
+                item = window.getSourceList().item(index)
+                assert item.text() == label
+                assert item.toolTip() == str(paths[index])
+                assert item.data(Qt.ItemDataRole.UserRole) == index
+            assert window.getVolume() is None
+        finally:
+            window.close()
+
     # 切换中英语言，验证按钮和提示无需重启即可更新。
     def test_interface_language_can_switch_without_restart(self) -> None:
         from med_image_seg.Concrete.Localization.C_Localizer import C_Localizer
@@ -266,7 +303,8 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
         assert window.requireLoadingDialog().isVisible()
         progress = window.requireLoadingDialog().findChild(QProgressBar)
         assert progress is not None and progress.isVisible()
-        assert (progress.minimum(), progress.maximum()) == (0, 0)
+        assert (progress.minimum(), progress.maximum()) == (0, 100)
+        assert 0 <= progress.value() < 100
         assert not window.requireCentralWidget().isEnabled()
         assert not window.getExportAction().isEnabled()
         assert not window.getExportUbdAction().isEnabled()
@@ -347,6 +385,8 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
         slice_index = window.getCurrentSlice()
         previous_message = window.statusBar().currentMessage()
         stages: list[str] = []
+        save_checked = Event()
+        save_check_errors: list[BaseException] = []
         add_polygon = C_AnnotationProject.add_polygon
         save = C_AnnotationProject.save
         refresh_slice = window.refresh_slice
@@ -356,28 +396,42 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
             self: I_MutableAnnotationProject, index: int, polygon: I_PolygonAnnotation
         ) -> None:
             assert isinstance(self, C_AnnotationProject)
-            C_GuiFixtures().assert_polygon_busy(window)
+            assert window.getInternalClosingPolygon()
             stages.append("annotation")
             add_polygon(self, index, polygon)
 
-        # 记录保存调用和路径，必要时检查闭合期间界面仍处于锁定状态。
+        # 只在主线程探测 Qt 界面及重入行为，后台保存通过事件等待检查结果。
+        def check_save_ui() -> None:
+            try:
+                C_GuiFixtures().assert_polygon_busy(window)
+                window.add_polygon(C_PointList(points), "add")
+                window.getCanvas().finish_polygon()
+                window.autosave_if_needed()
+                assert not window.close()
+                for event_type in (QEvent.Type.KeyPress, QEvent.Type.KeyRelease):
+                    QApplication.postEvent(
+                        window,
+                        QKeyEvent(
+                            event_type,
+                            Qt.Key.Key_Right,
+                            Qt.KeyboardModifier.NoModifier,
+                        ),
+                    )
+            except BaseException as error:
+                save_check_errors.append(error)
+            finally:
+                save_checked.set()
+
+        # 记录后台保存顺序，确认主线程检查已经完成后再执行真实写盘。
         def record_save(
             self: I_MutableAnnotationProject, path: I_FilePath
         ) -> I_FilePath:
             assert isinstance(self, C_AnnotationProject)
-            C_GuiFixtures().assert_polygon_busy(window)
             stages.append("save")
-            window.add_polygon(C_PointList(points), "add")
-            window.getCanvas().finish_polygon()
-            window.autosave_if_needed()
-            assert not window.close()
-            for event_type in (QEvent.Type.KeyPress, QEvent.Type.KeyRelease):
-                QApplication.postEvent(
-                    window,
-                    QKeyEvent(
-                        event_type, Qt.Key.Key_Right, Qt.KeyboardModifier.NoModifier
-                    ),
-                )
+            QTimer.singleShot(0, window, check_save_ui)
+            assert save_checked.wait(5), "GUI did not process the save checkpoint"
+            if save_check_errors:
+                raise save_check_errors[0]
             return save(self, path)
 
         # 检查刷新阶段界面仍被锁定，并记录刷新执行顺序。
@@ -471,12 +525,12 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
         def fail_annotation(
             self: I_MutableAnnotationProject, index: int, polygon: I_PolygonAnnotation
         ) -> None:
-            C_GuiFixtures().assert_polygon_busy(window)
+            assert window.getInternalClosingPolygon()
             raise RuntimeError("simulated polygon failure")
 
         # 模拟 JSON 保存失败，检查错误路径和界面状态恢复。
         def fail_save(self: I_MutableAnnotationProject, path: I_FilePath) -> I_FilePath:
-            C_GuiFixtures().assert_polygon_busy(window)
+            assert window.getInternalClosingPolygon()
             raise OSError("simulated JSON save failure")
 
         # 在确认界面已锁定后模拟刷新失败。

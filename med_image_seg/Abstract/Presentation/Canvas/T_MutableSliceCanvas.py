@@ -103,6 +103,10 @@ class T_MutableSliceCanvas(
         overlay_color: tuple[int, int, int, int] = (49, 180, 255, 72),
     ) -> None: ...
 
+    # 清除影像、轮廓、草稿和观察交点，使下次加载重新适配视野。
+    @abstractmethod
+    def clear_slice(self) -> None: ...
+
     # 仅在可编辑且顶点足够时闭合草稿，通过信号提交轮廓快照。
     @abstractmethod
     def finish_polygon(self) -> None: ...

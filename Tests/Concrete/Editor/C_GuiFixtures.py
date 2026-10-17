@@ -241,7 +241,7 @@ class C_GuiFixtures(
         )
         assert not window.getAutosaveTimer().isActive()
         assert window.getHost().statusBar().currentMessage() == C_Localizer().translate(
-            "closing_polygon_status"
+            "closing_polygon_status", window.getLanguage()
         )
         cursor = QApplication.overrideCursor()
         assert cursor is not None

@@ -20,7 +20,7 @@ from typing import final
 
 import numpy as np
 from numpy.typing import NDArray
-from PySide6.QtCore import QPointF, QRectF, Qt, Signal, SignalInstance
+from PySide6.QtCore import QEventLoop, QPointF, QRectF, Qt, Signal, SignalInstance
 from PySide6.QtGui import (
     QBrush,
     QColor,
@@ -34,6 +34,7 @@ from PySide6.QtGui import (
     QWheelEvent,
 )
 from PySide6.QtWidgets import (
+    QApplication,
     QGraphicsEllipseItem,
     QGraphicsPixmapItem,
     QGraphicsPolygonItem,
@@ -332,12 +333,35 @@ class C_Qt_SliceCanvas(
                     handle.setCursor(Qt.CursorShape.ArrowCursor)
                 self.scene().addItem(handle)
                 self._state_handles.append(handle)
+                if not self.isEnabled() and len(self._state_handles) % 128 == 0:
+                    QApplication.processEvents(
+                        QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents
+                    )
         if self.getInternalFirstImage() or image_size_changed:
             self.fitInView(
                 self.getInternalImageRect(), Qt.AspectRatioMode.KeepAspectRatio
             )
             self.setInternalFirstImage(False)
             self.setInternalAutoFit(True)
+
+    # 释放本层全部图元与交互状态，避免卸载后仍显示旧图或保留缩放。
+    def clear_slice(self) -> None:
+        self.scene().clear()
+        self.setInternalInterpolationItem(None)
+        self.setInternalDraftItem(None)
+        self._state_draft_points.clear()
+        self._state_polygon_items.clear()
+        self._state_polygon_points.clear()
+        self._state_handles.clear()
+        self.setInternalDraggingHandle(None)
+        self.setInternalCrosshairPosition(None)
+        self.setInternalCrosshairColors(("", "", ""))
+        self.setInternalImageRect(QRectF())
+        self.scene().setSceneRect(QRectF())
+        self.resetTransform()
+        self.setInternalFirstImage(True)
+        self.setInternalAutoFit(True)
+        self.viewport().update()
 
     # 重建未闭合轮廓的路径图元，使鼠标绘制结果及时显示。
     def _update_draft(self) -> None:

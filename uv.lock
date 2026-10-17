@@ -140,6 +140,15 @@ wheels = [
 ]
 
 [[package]]
+name = "fake-process-estimation"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b2/f3/b96599d29eb1ae9e8281d4e7401939090ed6e3581519672451d58159dbf5/fake_process_estimation-0.1.0.tar.gz", hash = "sha256:89316093b30225f169f2a6443a3e26138e7ee1065da31cda7fdff3447f997c4d", size = 5514, upload-time = "2026-10-17T01:33:04.761Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4a/24/664e40760c6999788e774e70c59d516604f2fe1075f63d885169f135729c/fake_process_estimation-0.1.0-py3-none-any.whl", hash = "sha256:a31e3389aae688b3d090e6ef97701fdb55cf00ce7c2c438afe35473bffb2bcc6", size = 7410, upload-time = "2026-10-17T01:33:05.811Z" },
+]
+
+[[package]]
 name = "imageio"
 version = "2.37.4"
 source = { registry = "https://pypi.org/simple" }
@@ -175,10 +184,11 @@ wheels = [
 
 [[package]]
 name = "med-image-seg"
-version = "0.1.3"
+version = "0.1.4"
 source = { editable = "." }
 dependencies = [
     { name = "ct-mri-dicom-nii-reader" },
+    { name = "fake-process-estimation" },
     { name = "numpy" },
     { name = "pyside6" },
     { name = "scikit-image" },
@@ -198,6 +208,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "ct-mri-dicom-nii-reader" },
+    { name = "fake-process-estimation", specifier = ">=0.1.0,<0.2" },
     { name = "numpy", specifier = ">=1.26,<3" },
     { name = "pyside6", specifier = ">=6.8,<7" },
     { name = "scikit-image", specifier = ">=0.24,<1" },

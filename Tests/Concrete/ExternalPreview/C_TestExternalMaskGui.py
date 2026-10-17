@@ -1109,7 +1109,8 @@ class C_TestExternalMaskGui(
             assert window.requireExternalLoadingDialog().isVisible()
             progress = window.requireExternalLoadingDialog().findChild(QProgressBar)
             assert progress is not None
-            assert (progress.minimum(), progress.maximum()) == (0, 0)
+            assert (progress.minimum(), progress.maximum()) == (0, 100)
+            assert 0 <= progress.value() < 100
             assert not window.unload_external_mask()
             assert not window.load_external_mask(path)
             assert not window.getHost().close()

@@ -7,16 +7,22 @@ from typing import Generic, TypeVar
 import numpy as np
 from numpy.typing import NDArray
 
+from ..Progress.I_ProgressDialogSettings import I_ProgressDialogSettings
+
 T_Context = TypeVar("T_Context")
 T_Point = TypeVar("T_Point")
 
 
 # 处理界面锁定、窗宽窗位和十字线点击，隔离 Qt 交互细节。
 class T_InteractionService(ABC, Generic[T_Context, T_Point]):
-    # 临时禁用主界面、附属窗口和快捷键，在闭合流程结束后恢复原状态。
+    # 在耗时流程中锁定界面，可按配置展示进度，结束后恢复原有控件状态。
     @abstractmethod
     def polygon_busy_ui(
-        self, context: T_Context, status_key: str = "closing_polygon_status"
+        self,
+        context: T_Context,
+        status_key: str = "closing_polygon_status",
+        *,
+        progress_settings: I_ProgressDialogSettings | None = None,
     ) -> AbstractContextManager[None]: ...
 
     # 把截面点击转换为共享体素交点，并同步其余截面的层号。

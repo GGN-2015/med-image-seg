@@ -1,4 +1,5 @@
 from . import (
+    Appearance,
     Canvas,
     Interaction,
     Layout,
@@ -7,10 +8,13 @@ from . import (
     Navigation,
     Observation,
     Persistence,
+    Progress,
+    Tasks,
     Window,
 )
 
 __all__ = [
+    "Appearance",
     "Canvas",
     "Interaction",
     "Layout",
@@ -19,5 +23,7 @@ __all__ = [
     "Navigation",
     "Observation",
     "Persistence",
+    "Progress",
+    "Tasks",
     "Window",
 ]

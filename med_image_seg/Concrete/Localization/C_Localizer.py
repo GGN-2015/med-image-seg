@@ -16,6 +16,44 @@ class C_Localizer(I_Localizer):
                 "zh": "med-image-seg - 医疗影像多边形标注",
             },
             "toolbar_annotation": {"en": "Annotation", "zh": "标注"},
+            "estimated_progress_format": {
+                "en": "Estimated %p%",
+                "zh": "预估 %p%",
+            },
+            "completed_progress_format": {"en": "Completed %p%", "zh": "完成 %p%"},
+            "estimated_progress_details": {
+                "en": (
+                    "Elapsed: {elapsed:.1f} s · Expected duration: {expected:.1f} s\n"
+                    "Progress is an estimate; completion waits for the actual task."
+                ),
+                "zh": (
+                    "已用时：{elapsed:.1f} 秒 · 预计耗时：{expected:.1f} 秒\n"
+                    "百分比仅为预估，任务实际完成后才会显示 100%。"
+                ),
+            },
+            "closing_polygon_title": {
+                "en": "Closing polygon",
+                "zh": "正在闭合多边形",
+            },
+            "export_mask_progress_title": {
+                "en": "Exporting mask",
+                "zh": "正在导出掩码",
+            },
+            "export_mask_status": {
+                "en": (
+                    "Saving annotations, computing the 3D mask and writing "
+                    "the selected file. Please wait..."
+                ),
+                "zh": "正在保存标注、生成三维掩码并写入所选文件，请稍候…",
+            },
+            "startup_title": {
+                "en": "Starting med-image-seg",
+                "zh": "正在启动 med-image-seg",
+            },
+            "startup_message": {
+                "en": "Preparing the annotation interface…",
+                "zh": "正在准备标注界面…",
+            },
             "export_mask": {
                 "en": "Export interpolated 3D mask (.nii.gz)",
                 "zh": "导出含插值的 3D 掩码（.nii.gz）",
@@ -62,6 +100,25 @@ class C_Localizer(I_Localizer):
             },
             "annotation_grid": {"en": "Annotation grid", "zh": "标注网格"},
             "load_selected": {"en": "Load selected image", "zh": "载入选中影像"},
+            "unload_imported_image": {
+                "en": "Unload imported image",
+                "zh": "卸载已导入影像",
+            },
+            "unload_image_tooltip": {
+                "en": (
+                    "Close the current image and remove it from this list. "
+                    "Original image files are not deleted."
+                ),
+                "zh": "关闭当前影像并将其从列表移除，不删除原始影像文件。",
+            },
+            "unloading_image_status": {
+                "en": "Saving annotations and unloading the current image...",
+                "zh": "正在保存标注并卸载当前影像…",
+            },
+            "image_unloaded": {
+                "en": "Unloaded {name}. Original image files are unchanged.",
+                "zh": "已卸载 {name}，原始影像文件未改动。",
+            },
             "previous_slice": {"en": "Previous slice", "zh": "上一层"},
             "next_slice": {"en": "Next slice", "zh": "下一层"},
             "previous_labeled_slice": {"en": "Prev labeled slice", "zh": "上一标注层"},

@@ -51,6 +51,6 @@ class I_ImageSource(I_Record):
     @abstractmethod
     def annotation_path_for_index(self, index: int) -> I_FilePath: ...
 
-    # 返回影像列表中的显示名称。
+    # 返回可区分短文件名的列表名称，长度判断包含扩展名。
     @abstractmethod
     def getDisplayName(self) -> str: ...

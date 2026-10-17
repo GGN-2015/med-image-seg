@@ -1,8 +1,37 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import final
 
-from PySide6.QtWidgets import QGraphicsPathItem
+from PySide6.QtCore import QPointF, QRectF, Qt, QThread, QTimer, SignalInstance
+from PySide6.QtGui import QAction, QShortcut
+from PySide6.QtWidgets import (
+    QAbstractSpinBox,
+    QApplication,
+    QButtonGroup,
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QGraphicsEllipseItem,
+    QGraphicsPathItem,
+    QGraphicsPixmapItem,
+    QGraphicsPolygonItem,
+    QGraphicsView,
+    QGroupBox,
+    QLabel,
+    QListWidget,
+    QMainWindow,
+    QMessageBox,
+    QProgressBar,
+    QProgressDialog,
+    QPushButton,
+    QRadioButton,
+    QSlider,
+    QSpinBox,
+    QSplitter,
+    QToolBar,
+    QWidget,
+)
 
 from ....Abstract.Presentation.Canvas.T_MutableSliceCanvas import T_MutableSliceCanvas
 from ....Abstract.Presentation.Canvas.T_MutableVertexHandle import T_MutableVertexHandle
@@ -25,40 +54,7 @@ from ....Abstract.Presentation.Persistence.T_ExportService import T_ExportServic
 from ....Abstract.Presentation.Window.T_MutableAnnotationMainWindow import (
     T_MutableAnnotationMainWindow,
 )
-
-if TYPE_CHECKING:
-    from ....Abstract.Storage.Paths.I_FilePath import I_FilePath
-from typing import final
-
-from PySide6.QtCore import QPointF, QRectF, Qt, QThread, QTimer, SignalInstance
-from PySide6.QtGui import QAction, QShortcut
-from PySide6.QtWidgets import (
-    QAbstractSpinBox,
-    QApplication,
-    QButtonGroup,
-    QCheckBox,
-    QComboBox,
-    QDoubleSpinBox,
-    QFileDialog,
-    QGraphicsEllipseItem,
-    QGraphicsPixmapItem,
-    QGraphicsPolygonItem,
-    QGraphicsView,
-    QGroupBox,
-    QLabel,
-    QListWidget,
-    QMainWindow,
-    QMessageBox,
-    QProgressBar,
-    QProgressDialog,
-    QPushButton,
-    QRadioButton,
-    QSlider,
-    QSpinBox,
-    QSplitter,
-    QToolBar,
-    QWidget,
-)
+from ....Abstract.Storage.Paths.I_FilePath import I_FilePath
 
 
 # 处理界面导出请求和成功失败提示，把写盘工作交给导出接口。
@@ -266,30 +262,47 @@ class C_Qt_ExportService(
         output: I_FilePath,
     ) -> None:
         from ...Application.Projects.C_AnnotationExporter import C_AnnotationExporter
+        from ...Application.Tasks.C_ExportMaskTask import C_ExportMaskTask
+        from ..Progress.C_ProgressDialogSettings import C_ProgressDialogSettings
+        from ..Tasks.C_Qt_BackgroundTaskRunner import C_Qt_BackgroundTaskRunner
 
         if (
             context.getProject() is None
             or context.getVolume() is None
             or context.getExternalPreviewActive()
+            or context.getInternalClosingPolygon()
         ):
             return
-        if not context.save_project(notify=True):
-            return
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        operation = (
+            "ui.mask.export.ubd"
+            if str(output).lower().endswith(".ubd.npz")
+            else "ui.mask.export.nifti"
+        )
         try:
-            C_AnnotationExporter().export(
-                context.requireProject(),
-                context.requireVolume(),
-                output,
-                interpolate=True,
-            )
+            with context._polygon_busy_ui(
+                "export_mask_status",
+                progress_settings=C_ProgressDialogSettings(
+                    operation, "export_mask_progress_title", 10.0
+                ),
+            ):
+                if not context.save_project(notify=True):
+                    dialog = context.getBusyProgressDialog()
+                    if dialog is not None:
+                        dialog.reject()
+                    return
+                C_Qt_BackgroundTaskRunner[I_FilePath]().run(
+                    C_ExportMaskTask(
+                        C_AnnotationExporter(),
+                        context.requireProject(),
+                        context.requireVolume(),
+                        output,
+                    )
+                )
         except Exception as exc:
             QMessageBox.critical(
                 context.getHost(), context._text("export_failed_title"), str(exc)
             )
             return
-        finally:
-            QApplication.restoreOverrideCursor()
         QMessageBox.information(
             context.getHost(),
             context._text("export_complete_title"),

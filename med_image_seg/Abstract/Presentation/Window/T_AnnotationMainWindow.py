@@ -130,6 +130,10 @@ class T_AnnotationMainWindow(
     @abstractmethod
     def getLoadingDialog(self) -> T_Dialog | None: ...
 
+    # 返回当前锁定操作的进度窗口，供闭合与导出共用后台保存机制。
+    @abstractmethod
+    def getBusyProgressDialog(self) -> T_Dialog | None: ...
+
     # 返回最近一次影像加载错误。
     @abstractmethod
     def getInternalLoadError(self) -> str | None: ...
@@ -249,6 +253,10 @@ class T_AnnotationMainWindow(
     # 返回载入选中影像按钮。
     @abstractmethod
     def getLoadButton(self) -> T_Button: ...
+
+    # 返回关闭当前影像并移除导入项的按钮。
+    @abstractmethod
+    def getUnloadImageButton(self) -> T_Button: ...
 
     # 返回切片画布。
     @abstractmethod

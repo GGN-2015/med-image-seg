@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from ....Abstract.Storage.Paths.I_FilePath import I_FilePath
 from typing import final
 
-from PySide6.QtCore import QPointF, QRectF, Qt, QThread, QTimer, SignalInstance
+from PySide6.QtCore import QPointF, QRectF, QThread, QTimer, SignalInstance
 from PySide6.QtGui import QAction, QShortcut
 from PySide6.QtWidgets import (
     QAbstractSpinBox,
@@ -63,7 +63,7 @@ from PySide6.QtWidgets import (
 )
 
 
-# 管理加载提示及控件禁用状态，打开当前编号项目并更新自动保存提示。
+# 管理影像加载与卸载，统一处理项目保存、视图释放和 Qt 控件状态恢复。
 @final
 class C_Qt_LoadingService(
     T_LoadingService[
@@ -180,25 +180,22 @@ class C_Qt_LoadingService(
         ],
         source: I_ImageSource,
     ) -> None:
+        from ..Progress.C_Qt_EstimatedProgressDialog import C_Qt_EstimatedProgressDialog
+
         context.requireCentralWidget().setEnabled(False)
         for view in context.iterObservationWindows():
             view.getHost().setEnabled(False)
         context.getExportAction().setEnabled(False)
         context.getExportUbdAction().setEnabled(False)
         context.getExportJsonAction().setEnabled(False)
-        dialog = QProgressDialog(
+        dialog = C_Qt_EstimatedProgressDialog(
             context._text("loading_message", path=str(source.getPath())),
-            "",
-            0,
-            0,
-            context.getHost(),
+            context._text("loading_title"),
+            f"volume.load.{source.getKind().value}",
+            default_seconds=30.0,
+            language=context.getLanguage(),
+            parent=context.getHost(),
         )
-        dialog.setWindowTitle(context._text("loading_title"))
-        dialog.setCancelButton(None)
-        dialog.setMinimumDuration(0)
-        dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
-        dialog.setAutoClose(False)
-        dialog.setAutoReset(False)
         dialog.show()
         context.setLoadingDialog(dialog)
         context.getHost().statusBar().showMessage(
@@ -263,7 +260,10 @@ class C_Qt_LoadingService(
         ],
     ) -> None:
         if context.getLoadingDialog() is not None:
-            context.requireLoadingDialog().close()
+            if context.getInternalLoadError() is None:
+                context.requireLoadingDialog().accept()
+            else:
+                context.requireLoadingDialog().reject()
             context.requireLoadingDialog().deleteLater()
             context.setLoadingDialog(None)
         context.requireCentralWidget().setEnabled(True)
@@ -278,6 +278,128 @@ class C_Qt_LoadingService(
         for view in context.iterObservationWindows():
             view.getHost().setEnabled(has_volume)
         context._apply_mode_ui()
+
+    # 保存成功后释放影像及三视图缓存，仅从集合移除来源，不操作影像文件。
+    def unload_imported_image(
+        self,
+        context: T_MutableAnnotationMainWindow[
+            QMainWindow,
+            QTimer,
+            QToolBar,
+            QAction,
+            QLabel,
+            QPushButton,
+            QComboBox,
+            QSplitter,
+            QListWidget,
+            QDoubleSpinBox,
+            QSlider,
+            QSpinBox,
+            QGroupBox,
+            QRadioButton,
+            QCheckBox,
+            QProgressBar,
+            QProgressDialog,
+            QShortcut,
+            QWidget,
+            QButtonGroup,
+            T_MutableSliceCanvas[
+                QGraphicsView,
+                QPointF,
+                QRectF,
+                QGraphicsPixmapItem,
+                QGraphicsPathItem,
+                QGraphicsPolygonItem,
+                T_MutableVertexHandle[QGraphicsEllipseItem],
+                SignalInstance,
+            ],
+            T_MutableOrthogonalSliceWindow[
+                QWidget,
+                QLabel,
+                T_MutableSliceCanvas[
+                    QGraphicsView,
+                    QPointF,
+                    QRectF,
+                    QGraphicsPixmapItem,
+                    QGraphicsPathItem,
+                    QGraphicsPolygonItem,
+                    T_MutableVertexHandle[QGraphicsEllipseItem],
+                    SignalInstance,
+                ],
+                QSpinBox,
+                SignalInstance,
+            ],
+            T_MutableAnnotationIndexSpinBox[QAbstractSpinBox, SignalInstance],
+            T_MutableMaskCoverageBar[QWidget, QSlider],
+            T_MutableVolumeLoadThread[QThread, SignalInstance],
+            T_MutableExternalMaskLoadThread[QThread, SignalInstance],
+            QPointF,
+        ],
+    ) -> bool:
+        source = context.getCurrentSource()
+        if (
+            source is None
+            or context.getVolume() is None
+            or context.getProject() is None
+            or context.getLoadThread() is not None
+            or context.getExternalMaskThread() is not None
+            or context.getInternalClosingPolygon()
+            or context.getInternalSwitchingAnnotation()
+        ):
+            return False
+        context.getCanvas().finish_polygon()
+        editing_interpolation = (
+            context.getInternalEditingInterpolationVisible()
+            if context.getReadOnly()
+            else context.getShowInterpolation().isChecked()
+        )
+        with context._polygon_busy_ui("unloading_image_status"):
+            if not context.save_project(notify=True, force=True):
+                return False
+            context.getSources().removeByFingerprint(source.getFingerprint())
+            context.setCurrentSource(None)
+            context.setVolume(None)
+            context.setProject(None)
+            context.setProjectPath(None)
+            context.setInternalLoadingSource(None)
+            context.setInternalLoadError(None)
+            context.setInternalDirty(False)
+            context.setInternalMaskCoverageDirty(True)
+            context.setInternalObservationMask(None)
+            context.setObservationPosition((0, 0, 0))
+            context.setCurrentSlice(0)
+            context.setAnnotationIndex(0)
+            context.setReadOnly(False)
+            context.setExternalMask(None)
+            context.setExternalMaskPath(None)
+            context.setInternalExternalViewState(None)
+            context.setInternalExternalMaskError(None)
+            context.getCanvas().clear_slice()
+            context.getCanvas().set_read_only(False)
+            context.getCanvas().set_operation("add")
+            context.getAddRadio().setChecked(True)
+            for view in context.iterObservationWindows():
+                view.getCanvas().clear_slice()
+                view.getCanvas().set_crosshair(None, (0, 0, 0))
+                view.getSliceSpin().setRange(0, 0)
+                view.getHost().hide()
+            context.getSliceSlider().setRange(0, 0)
+            context.getSliceSpin().setRange(0, 0)
+            context.getMaskCoverageBar().set_presence(())
+            context.getReviewProgress().setRange(0, 1)
+            context.getReviewProgress().reset()
+            context.getCompletedCheck().setChecked(False)
+            context.getForceEmptyCheck().setChecked(False)
+            context.getShowInterpolation().setChecked(editing_interpolation)
+            context.setInternalEditingInterpolationVisible(editing_interpolation)
+            context._sync_annotation_index_spin()
+            context._refresh_source_list()
+        self.finish_loading_ui(context)
+        context._retranslate_ui()
+        context.getHost().statusBar().showMessage(
+            context._text("image_unloaded", name=source.getDisplayName())
+        )
+        return True
 
     # 打开当前编号的 JSON 或备份；文件不存在时创建对应的新项目。
     def open_annotation_project(

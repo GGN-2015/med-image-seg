@@ -242,6 +242,10 @@ class C_Qt_LayoutService(
         context.getLoadButton().clicked.connect(context.load_selected_source)
         left_layout.addLayout(spacing_row)
         left_layout.addWidget(context.getLoadButton())
+        context.setUnloadImageButton(QPushButton())
+        context.getUnloadImageButton().setEnabled(False)
+        context.getUnloadImageButton().clicked.connect(context.unload_imported_image)
+        left_layout.addWidget(context.getUnloadImageButton())
         center = QWidget()
         center_layout = QVBoxLayout(center)
         context.setCanvas(C_Qt_SliceCanvas())
@@ -500,6 +504,8 @@ class C_Qt_LayoutService(
         context.getImportedImagesLabel().setText(context._text("imported_images"))
         context.getSpacingLabel().setText(context._text("annotation_grid"))
         context.getLoadButton().setText(context._text("load_selected"))
+        context.getUnloadImageButton().setText(context._text("unload_imported_image"))
+        context.getUnloadImageButton().setToolTip(context._text("unload_image_tooltip"))
         context.getPreviousButton().setText(context._text("previous_slice"))
         context.getNextButton().setText(context._text("next_slice"))
         context.getPreviousLabeledButton().setText(
@@ -755,6 +761,13 @@ class C_Qt_LayoutService(
             context.getVolume() is not None and context.getProject() is not None
         )
         external = context.getExternalPreviewActive()
+        context.getUnloadImageButton().setEnabled(
+            has_volume
+            and context.getLoadThread() is None
+            and context.getExternalMaskThread() is None
+            and not context.getInternalClosingPolygon()
+            and not context.getInternalSwitchingAnnotation()
+        )
         for control in context.iterEditingControls():
             control.setEnabled(has_volume and (not context.getReadOnly()))
         for shortcut in context.iterEditingShortcuts():

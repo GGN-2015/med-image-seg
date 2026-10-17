@@ -52,11 +52,15 @@ class C_Qt_ExternalMaskLoadThread(
 
     # 在线程中读取并对齐外置掩码，通过信号返回结果或错误。
     def run(self) -> None:
+        from ...Diagnostics.Progress.C_OperationProgressFactory import (
+            C_OperationProgressFactory,
+        )
         from ...Storage.Masks.C_MedicalMaskReader import C_MedicalMaskReader
 
         try:
-            mask = C_MedicalMaskReader().read(self.getPath(), self.getReference())
-            presence = mask.any(axis=(0, 1))
+            with C_OperationProgressFactory().start("external-mask.read", 10.0):
+                mask = C_MedicalMaskReader().read(self.getPath(), self.getReference())
+                presence = mask.any(axis=(0, 1))
         except Exception as exc:
             self.failed.emit(f"{type(exc).__name__}: {exc}")
             return

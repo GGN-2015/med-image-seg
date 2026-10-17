@@ -36,6 +36,9 @@ from ....Abstract.Presentation.Navigation.T_MutableMaskCoverageBar import (
 from ....Abstract.Presentation.Observation import (
     T_MutableOrthogonalSliceWindow,
 )
+from ....Abstract.Presentation.Progress.I_ProgressDialogSettings import (
+    I_ProgressDialogSettings,
+)
 from ....Abstract.Presentation.Window.T_MutableAnnotationMainWindow import (
     T_MutableAnnotationMainWindow,
 )
@@ -56,7 +59,6 @@ if TYPE_CHECKING:
     )
     from ....Abstract.Storage.Paths.I_FilePath import I_FilePath
 import operator
-import sys
 from collections.abc import Iterator
 from typing import final
 
@@ -66,8 +68,6 @@ from PySide6.QtCore import QPointF, QRectF, Qt, QThread, QTime, QTimer, SignalIn
 from PySide6.QtGui import (
     QAction,
     QCloseEvent,
-    QFont,
-    QFontDatabase,
     QHideEvent,
     QShortcut,
     QShowEvent,
@@ -259,6 +259,14 @@ class C_Qt_AnnotationMainWindow(
     # 记录影像加载进度框。
     def setLoadingDialog(self, value: QProgressDialog | None) -> None:
         self._state_loading_dialog = value
+
+    # 返回当前锁定操作的进度窗口，让闭合和导出期间的保存均可在后台执行。
+    def getBusyProgressDialog(self) -> QProgressDialog | None:
+        return self._state_busy_progress_dialog
+
+    # 登记当前耗时操作的进度窗口，任务结束后解除后台执行标记。
+    def setBusyProgressDialog(self, value: QProgressDialog | None) -> None:
+        self._state_busy_progress_dialog = value
 
     # 返回最近一次影像加载错误。
     def getInternalLoadError(self) -> str | None:
@@ -505,6 +513,14 @@ class C_Qt_AnnotationMainWindow(
     # 记录载入选中影像按钮。
     def setLoadButton(self, value: QPushButton) -> None:
         self._state_load_button = value
+
+    # 返回关闭当前影像并移除导入项的按钮。
+    def getUnloadImageButton(self) -> QPushButton:
+        return self._state_unload_image_button
+
+    # 登记卸载影像按钮，供加载和模式切换统一管理状态。
+    def setUnloadImageButton(self, value: QPushButton) -> None:
+        self._state_unload_image_button = value
 
     # 返回切片画布。
     def getCanvas(
@@ -837,13 +853,10 @@ class C_Qt_AnnotationMainWindow(
     ) -> None:
         from ...Domain.Collections.C_ImageCollection import C_ImageCollection
         from ...Localization.C_Localizer import C_Localizer
+        from ..Appearance.C_Qt_FontSetup import C_Qt_FontSetup
 
         super().__init__()
-        if sys.platform == "win32":
-            QFontDatabase.addApplicationFont("C:/Windows/Fonts/msyh.ttc")
-            application = QApplication.instance()
-        if isinstance(application, QApplication):
-            application.setFont(QFont("Microsoft YaHei UI", 9))
+        C_Qt_FontSetup().configure()
         self.setLanguage(C_Localizer().normalize_language(language))
         self.resize(1500, 920)
         self.setSources(C_ImageCollection(sources or []))
@@ -857,6 +870,7 @@ class C_Qt_AnnotationMainWindow(
         self.setLoadThread(None)
         self.setInternalLoadingSource(None)
         self.setLoadingDialog(None)
+        self.setBusyProgressDialog(None)
         self.setInternalLoadError(None)
         self.setInternalDirty(False)
         self.setInternalClosingPolygon(False)
@@ -974,7 +988,10 @@ class C_Qt_AnnotationMainWindow(
         if thread is not None:
             thread.getHost().deleteLater()
         if self.getExternalLoadingDialog() is not None:
-            self.requireExternalLoadingDialog().close()
+            if self.getInternalExternalMaskError() is None:
+                self.requireExternalLoadingDialog().accept()
+            else:
+                self.requireExternalLoadingDialog().reject()
             self.requireExternalLoadingDialog().deleteLater()
             self.setExternalLoadingDialog(None)
         for _state_index in range(self.getExternalLoadingWidgetCount()):
@@ -1137,6 +1154,12 @@ class C_Qt_AnnotationMainWindow(
         self.requireLoadThread().getFailed().connect(self.volume_load_failed)
         self.requireLoadThread().getHost().finished.connect(self.load_thread_finished)
         self.requireLoadThread().getHost().start()
+
+    # 把保存、状态清理和列表移除交给加载服务，不删除原始影像。
+    def unload_imported_image(self) -> bool:
+        from ..Persistence.C_Qt_LoadingService import C_Qt_LoadingService
+
+        return C_Qt_LoadingService().unload_imported_image(self)
 
     # 禁用三个视图和编辑入口，并显示不可取消的加载进度提示。
     def _show_loading(self, source: I_ImageSource) -> None:
@@ -1435,9 +1458,16 @@ class C_Qt_AnnotationMainWindow(
             self._refresh_observation_views()
             return
         if self.getInternalMaskCoverageDirty():
-            self.getMaskCoverageBar().set_presence(
-                self.requireProject().mask_presence()
-            )
+            if self.getBusyProgressDialog() is not None:
+                from ...Application.Tasks.C_MaskPresenceTask import C_MaskPresenceTask
+                from ..Tasks.C_Qt_BackgroundTaskRunner import C_Qt_BackgroundTaskRunner
+
+                presence = C_Qt_BackgroundTaskRunner[NDArray[np.bool_]]().run(
+                    C_MaskPresenceTask(self.requireProject())
+                )
+            else:
+                presence = self.requireProject().mask_presence()
+            self.getMaskCoverageBar().set_presence(presence)
             self.setInternalMaskCoverageDirty(False)
         annotation = self.requireProject().annotation(self.getCurrentSlice())
         if self.getReadOnly():
@@ -1551,17 +1581,24 @@ class C_Qt_AnnotationMainWindow(
             return
         self.set_slice(target)
 
-    # 临时禁用主界面、附属窗口和快捷键，在闭合流程结束后恢复原状态。
+    # 将耗时流程的界面锁定和进度配置转交交互服务。
     def _polygon_busy_ui(
-        self, status_key: str = "closing_polygon_status"
+        self,
+        status_key: str = "closing_polygon_status",
+        *,
+        progress_settings: I_ProgressDialogSettings | None = None,
     ) -> AbstractContextManager[None]:
         from ..Interaction.C_Qt_InteractionService import C_Qt_InteractionService
 
-        return C_Qt_InteractionService().polygon_busy_ui(self, status_key)
+        return C_Qt_InteractionService().polygon_busy_ui(
+            self, status_key, progress_settings=progress_settings
+        )
 
     # 向指定层加入轮廓，清除强制空层标志并分配新的编辑序号。
     def add_polygon(self, points: I_PointList, operation: str) -> None:
+        from ...Application.Tasks.C_AddPolygonTask import C_AddPolygonTask
         from ...Domain.Annotations.C_PolygonAnnotation import C_PolygonAnnotation
+        from ..Tasks.C_Qt_BackgroundTaskRunner import C_Qt_BackgroundTaskRunner
 
         if (
             self.getProject() is None
@@ -1570,9 +1607,12 @@ class C_Qt_AnnotationMainWindow(
         ):
             return
         with self._polygon_busy_ui():
-            self.requireProject().add_polygon(
-                self.getCurrentSlice(),
-                C_PolygonAnnotation(points=points, operation=operation),
+            C_Qt_BackgroundTaskRunner[None]().run(
+                C_AddPolygonTask(
+                    self.requireProject(),
+                    self.getCurrentSlice(),
+                    C_PolygonAnnotation(points=points, operation=operation),
+                )
             )
             self.commit_change()
             self.refresh_slice()
@@ -1715,7 +1755,18 @@ class C_Qt_AnnotationMainWindow(
         ):
             return True
         try:
-            if self.getAnnotationIndex() > 0:
+            if self.getBusyProgressDialog() is not None:
+                from ...Application.Tasks.C_SaveProjectTask import C_SaveProjectTask
+                from ..Tasks.C_Qt_BackgroundTaskRunner import C_Qt_BackgroundTaskRunner
+
+                C_Qt_BackgroundTaskRunner[I_FilePath]().run(
+                    C_SaveProjectTask(
+                        self.requireProject(),
+                        self.requireProjectPath(),
+                        delete_if_empty=self.getAnnotationIndex() > 0,
+                    )
+                )
+            elif self.getAnnotationIndex() > 0:
                 self.requireProject().save(
                     self.requireProjectPath(), delete_if_empty=True
                 )
@@ -1746,7 +1797,11 @@ class C_Qt_AnnotationMainWindow(
     def export_mask(self) -> None:
         from ..Persistence.C_Qt_ExportService import C_Qt_ExportService
 
-        if self.getCurrentSource() is None or self.getExternalPreviewActive():
+        if (
+            self.getCurrentSource() is None
+            or self.getExternalPreviewActive()
+            or self.getInternalClosingPolygon()
+        ):
             return
         service = C_Qt_ExportService()
         output = service.select_output(
@@ -1763,7 +1818,11 @@ class C_Qt_AnnotationMainWindow(
     def export_ubd_mask(self) -> None:
         from ..Persistence.C_Qt_ExportService import C_Qt_ExportService
 
-        if self.getCurrentSource() is None or self.getExternalPreviewActive():
+        if (
+            self.getCurrentSource() is None
+            or self.getExternalPreviewActive()
+            or self.getInternalClosingPolygon()
+        ):
             return
         service = C_Qt_ExportService()
         output = service.select_output(
@@ -1784,6 +1843,7 @@ class C_Qt_AnnotationMainWindow(
             self.getProject() is None
             or self.getProjectPath() is None
             or self.getExternalPreviewActive()
+            or self.getInternalClosingPolygon()
         ):
             return
         service = C_Qt_ExportService()

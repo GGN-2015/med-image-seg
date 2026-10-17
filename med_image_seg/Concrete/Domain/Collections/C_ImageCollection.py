@@ -54,3 +54,11 @@ class C_ImageCollection(I_MutableImageCollection):
     def extend(self, sources: Iterable[str | I_FilePath | I_ImageSource]) -> None:
         for source in sources:
             self.add(source)
+
+    # 同步移除顺序表和指纹索引，允许以后重新导入，不访问磁盘文件。
+    def removeByFingerprint(self, fingerprint: str) -> bool:
+        source = self._by_fingerprint.pop(fingerprint, None)
+        if source is None:
+            return False
+        self._sources.remove(source)
+        return True

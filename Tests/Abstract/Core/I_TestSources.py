@@ -13,6 +13,12 @@ class I_TestSources(ABC):
         self, tmp_path: I_FilePath, suffix: str
     ) -> None: ...
 
+    # 文件名含扩展名不超过十个字符时补充父目录，长名称保持不变。
+    @abstractmethod
+    def test_short_image_names_include_parent_folder(
+        self, tmp_path: I_FilePath, folder: str, filename: str, qualified: bool
+    ) -> None: ...
+
     # 验证同一 DICOM 序列的文件与目录入口共享标注路径。
     @abstractmethod
     def test_dicom_file_and_directory_share_annotation(
@@ -28,6 +34,12 @@ class I_TestSources(ABC):
     # 验证重复影像来源不会产生多个集合项。
     @abstractmethod
     def test_collection_deduplicates_sources(self, tmp_path: I_FilePath) -> None: ...
+
+    # 移除任一导入项后保持顺序和指纹索引一致，并允许重新导入原文件。
+    @abstractmethod
+    def test_collection_removes_sources_without_deleting_files(
+        self, tmp_path: I_FilePath, index: int
+    ) -> None: ...
 
     # 验证编号后缀不改变影像基名和配套文件所在目录。
     @abstractmethod

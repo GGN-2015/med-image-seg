@@ -60,17 +60,21 @@ class C_Qt_VolumeLoadThread(
         from ...Algorithms.Validation.C_AnnotationGridResolver import (
             C_AnnotationGridResolver,
         )
+        from ...Diagnostics.Progress.C_OperationProgressFactory import (
+            C_OperationProgressFactory,
+        )
         from ...Storage.Volumes.C_MedicalVolumeReader import C_MedicalVolumeReader
 
         try:
-            self.setSpacingMm(
-                C_AnnotationGridResolver().resolve(
-                    self.getSource(), self.getAnnotationIndex(), self.getSpacingMm()
+            with C_OperationProgressFactory().start("volume.read", 30.0):
+                self.setSpacingMm(
+                    C_AnnotationGridResolver().resolve(
+                        self.getSource(), self.getAnnotationIndex(), self.getSpacingMm()
+                    )
                 )
-            )
-            volume = C_MedicalVolumeReader(self.getSpacingMm()).read(
-                self.getSource().getPath()
-            )
+                volume = C_MedicalVolumeReader(self.getSpacingMm()).read(
+                    self.getSource().getPath()
+                )
         except Exception as exc:
             self.failed.emit(f"{type(exc).__name__}: {exc}")
             return

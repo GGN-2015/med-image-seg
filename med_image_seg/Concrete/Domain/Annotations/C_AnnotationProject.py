@@ -385,8 +385,14 @@ class C_AnnotationProject(I_MutableAnnotationProject):
         self, path: str | I_FilePath, *, delete_if_empty: bool = False
     ) -> I_FilePath:
         from ...Algorithms.Persistence.C_ProjectPersistence import C_ProjectPersistence
+        from ...Diagnostics.Progress.C_OperationProgressFactory import (
+            C_OperationProgressFactory,
+        )
 
-        return C_ProjectPersistence().save(self, path, delete_if_empty=delete_if_empty)
+        with C_OperationProgressFactory().start("annotations.save", 1.0):
+            return C_ProjectPersistence().save(
+                self, path, delete_if_empty=delete_if_empty
+            )
 
     # 返回指定层轮廓合成的二值结果，不填入自动插值。
     def getManualPlane(self, slice_index: int) -> NDArray[np.bool_]:

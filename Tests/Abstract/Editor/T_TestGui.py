@@ -14,6 +14,12 @@ class T_TestGui(ABC, Generic[T_MonkeyPatch]):
     @abstractmethod
     def test_no_argument_window_starts_without_images(self) -> None: ...
 
+    # 同名短文件在列表中显示各自父目录，工具提示仍保留完整路径。
+    @abstractmethod
+    def test_source_list_disambiguates_short_filenames(
+        self, tmp_path: I_FilePath
+    ) -> None: ...
+
     # 切换中英语言，验证按钮和提示无需重启即可更新。
     @abstractmethod
     def test_interface_language_can_switch_without_restart(self) -> None: ...

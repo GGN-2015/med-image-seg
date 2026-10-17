@@ -17,3 +17,7 @@ class I_MutableImageCollection(I_ImageCollection):
     # 逐项导入并去重，保持新增影像的首次出现顺序。
     @abstractmethod
     def extend(self, sources: Iterable[str | I_FilePath | I_ImageSource]) -> None: ...
+
+    # 仅按指纹移除已导入项，不修改影像文件；不存在时返回 False。
+    @abstractmethod
+    def removeByFingerprint(self, fingerprint: str) -> bool: ...

@@ -298,22 +298,18 @@ class C_Qt_PreviewService(
             _enabled = context.getExternalLoadingShortcutEnabled(_state_index)
             shortcut.setEnabled(False)
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        dialog = QProgressDialog(
+        from ..Progress.C_Qt_EstimatedProgressDialog import C_Qt_EstimatedProgressDialog
+
+        dialog = C_Qt_EstimatedProgressDialog(
             context._text(
                 "external_mask_loading", path=str(context.getExternalMaskPath())
             ),
-            "",
-            0,
-            0,
-            context.getHost(),
+            context._text("external_mask_title"),
+            "external-mask.load",
+            default_seconds=10.0,
+            language=context.getLanguage(),
+            parent=context.getHost(),
         )
-        dialog.setWindowTitle(context._text("external_mask_title"))
-        dialog.setCancelButton(None)
-        dialog.setWindowFlag(Qt.WindowType.WindowCloseButtonHint, False)
-        dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
-        dialog.setMinimumDuration(0)
-        dialog.setAutoClose(False)
-        dialog.setAutoReset(False)
         dialog.show()
         context.setExternalLoadingDialog(dialog)
         context.setExternalMaskThread(

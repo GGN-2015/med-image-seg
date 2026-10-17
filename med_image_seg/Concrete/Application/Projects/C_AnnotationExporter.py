@@ -40,7 +40,17 @@ class C_AnnotationExporter(I_MutableAnnotationExporter):
         *,
         interpolate: bool = True,
     ) -> I_FilePath:
-        project.validate_volume(volume)
-        return self.getWriter().write(
-            output_path, project.to_mask(interpolate=interpolate), volume
+        from ...Diagnostics.Progress.C_OperationProgressFactory import (
+            C_OperationProgressFactory,
         )
+
+        operation = (
+            "mask.export.ubd"
+            if str(output_path).lower().endswith(".ubd.npz")
+            else "mask.export.nifti"
+        )
+        with C_OperationProgressFactory().start(operation, 10.0):
+            project.validate_volume(volume)
+            return self.getWriter().write(
+                output_path, project.to_mask(interpolate=interpolate), volume
+            )

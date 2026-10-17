@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 import sys
 from typing import final
 
+from PySide6.QtCore import QEventLoop
 from PySide6.QtWidgets import QApplication
 
 
@@ -24,15 +25,42 @@ class C_Qt_ApplicationHost(I_ApplicationHost):
         spacing_mm: float = 0.8,
         language: str = "en",
     ) -> int:
-        from ...Presentation.Window.C_Qt_AnnotationMainWindow import (
-            C_Qt_AnnotationMainWindow,
+        from ...Localization.C_Localizer import C_Localizer
+        from ...Presentation.Appearance.C_Qt_FontSetup import C_Qt_FontSetup
+        from ...Presentation.Progress.C_Qt_EstimatedProgressDialog import (
+            C_Qt_EstimatedProgressDialog,
         )
 
         app = QApplication.instance() or QApplication(sys.argv)
-        window = C_Qt_AnnotationMainWindow(
-            sources=None if sources is None else list(sources),
-            spacing_mm=spacing_mm,
+        C_Qt_FontSetup().configure()
+        localizer = C_Localizer()
+        dialog = C_Qt_EstimatedProgressDialog(
+            localizer.translate("startup_message", language),
+            localizer.translate("startup_title", language),
+            "startup.window",
+            default_seconds=3.0,
             language=language,
         )
-        window.show()
+        try:
+            dialog.show()
+            QApplication.processEvents(
+                QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents
+            )
+            from ...Presentation.Window.C_Qt_AnnotationMainWindow import (
+                C_Qt_AnnotationMainWindow,
+            )
+
+            window = C_Qt_AnnotationMainWindow(
+                sources=None if sources is None else list(sources),
+                spacing_mm=spacing_mm,
+                language=language,
+            )
+            dialog.refresh()
+            window.show()
+            dialog.accept()
+        except BaseException:
+            dialog.reject()
+            raise
+        finally:
+            dialog.deleteLater()
         return app.exec()

@@ -14,7 +14,7 @@ from typing import Generic, TypeVar
 T_Context = TypeVar("T_Context")
 
 
-# 管理加载提示及控件禁用状态，打开当前编号项目并更新自动保存提示。
+# 约定影像加载与卸载流程，集中保存项目、释放视图及恢复控件状态。
 class T_LoadingService(ABC, Generic[T_Context]):
     # 禁用三个视图和编辑入口，并显示不可取消的加载进度提示。
     @abstractmethod
@@ -23,6 +23,10 @@ class T_LoadingService(ABC, Generic[T_Context]):
     # 关闭加载提示并恢复先前控件状态，结束影像加载阶段。
     @abstractmethod
     def finish_loading_ui(self, context: T_Context) -> None: ...
+
+    # 保存并释放当前影像及三视图，再移除导入项，不自动载入剩余影像。
+    @abstractmethod
+    def unload_imported_image(self, context: T_Context) -> bool: ...
 
     # 打开当前编号的 JSON 或备份；文件不存在时创建对应的新项目。
     @abstractmethod
