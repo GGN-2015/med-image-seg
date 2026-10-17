@@ -172,6 +172,15 @@ including read-only observation mode. Canceling the file chooser starts no
 progress or background work. Export formats, Unicode-path handling, and the
 original annotation autosave path are unchanged.
 
+Background threads alone do not guarantee GUI responsiveness: a native routine
+that retains Python's GIL can also stop GUI timer callbacks. Large polygon
+rasterization uses scikit-image's GIL-releasing grid classifier, keeping the
+original absolute coordinates, boundary inclusion, clipping, and source/erase
+composition rules. Small bounded contours retain the original fast path.
+Regression tests compare the masks pixel-for-pixel and measure GUI heartbeat
+gaps during real large-polygon closure and both mask export formats, rather
+than relying only on simulated sleeps.
+
 Profiling also records image reading, external-mask processing, JSON saves,
 mask exports, and busy mode transitions. Outside the workflows described above,
 recording a duration does not itself move an operation to a background thread

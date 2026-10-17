@@ -1,6 +1,6 @@
 [project]
 name = "med-image-seg"
-version = "0.1.4"
+version = "0.1.5"
 description = "Interactive polygon annotation for DICOM, NIfTI, and UBD volumes"
 readme = "README.md"
 requires-python = ">=3.12"

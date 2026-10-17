@@ -8,6 +8,7 @@ from . import (
     Navigation,
     Observation,
     Projects,
+    Responsiveness,
     Storage,
 )
 
@@ -21,5 +22,6 @@ __all__ = [
     "Navigation",
     "Observation",
     "Projects",
+    "Responsiveness",
     "Storage",
 ]

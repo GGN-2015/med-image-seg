@@ -184,7 +184,7 @@ wheels = [
 
 [[package]]
 name = "med-image-seg"
-version = "0.1.4"
+version = "0.1.5"
 source = { editable = "." }
 dependencies = [
     { name = "ct-mri-dicom-nii-reader" },

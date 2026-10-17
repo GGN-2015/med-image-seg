@@ -15,7 +15,6 @@ from typing import final
 
 import numpy as np
 from numpy.typing import NDArray
-from skimage.draw import polygon as rasterize_polygon
 
 
 # 按来源分别合成轮廓掩码，依次应用添加与擦除后取并集。
@@ -27,6 +26,7 @@ class C_ManualPlaneAlgorithm(I_ManualPlaneAlgorithm):
     ) -> NDArray[np.bool_]:
         from ...Domain.Annotations.C_SliceAnnotation import C_SliceAnnotation
         from ...Numerics.Arrays.C_ArrayFactory import C_ArrayFactory
+        from .C_SkimagePolygonRasterizer import C_SkimagePolygonRasterizer
 
         plane_shape = (context.getShapeLps()[1], context.getShapeLps()[0])
         annotation = context.findSlice(slice_index) or C_SliceAnnotation()
@@ -36,17 +36,12 @@ class C_ManualPlaneAlgorithm(I_ManualPlaneAlgorithm):
             "manual": np.zeros(plane_shape, dtype=bool),
             "prototype": np.zeros(plane_shape, dtype=bool),
         }
+        rasterizer = C_SkimagePolygonRasterizer()
         for item in annotation.iterPolygons():
-            x = np.asarray(
-                [point.getX() for point in item.getPoints()], dtype=np.float64
+            region = rasterizer.rasterize(
+                item.getPoints(), plane_shape[1], plane_shape[0]
             )
-            y = np.asarray(
-                [point.getY() for point in item.getPoints()], dtype=np.float64
-            )
-            rows, columns = rasterize_polygon(y, x, shape=plane_shape)
-            source_planes[item.getSource()][rows, columns] = (
-                item.getOperation() == "add"
-            )
+            source_planes[item.getSource()][region] = item.getOperation() == "add"
         return C_ArrayFactory().wrap(
             source_planes["manual"] | source_planes["prototype"]
         )
