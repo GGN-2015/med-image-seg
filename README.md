@@ -57,6 +57,11 @@ Annotations are always stored beside the source image:
 
 The JSON does not store source paths or DICOM identity fields. It contains only the content fingerprint, resampled geometry, contours, and review state. Every polygon addition, vertex drag, deletion, copy, clear, or review action is saved immediately with atomic replacement. A rolling `.json.bak` backup and a 10-second fallback autosave are also maintained.
 
+When a matching annotation already exists, its saved isotropic grid spacing takes
+precedence over the current **Annotation grid** input while that image is loaded.
+This keeps the resampled CT shape aligned with the stored polygon coordinates;
+new images without annotations continue to use the value selected in the input.
+
 ### Multiple annotation files
 
 The **Annotation number** integer control at the top of the right panel defaults
@@ -210,11 +215,13 @@ The data model, interpolation, and exporter can be used independently:
 
 ```python
 from med_image_seg.Concrete.Application.Projects import (
-    C_AnnotationExporter, C_ProjectFactory,
+    C_AnnotationExporter,
+    C_ProjectFactory,
 )
 from med_image_seg.Concrete.Domain.Annotations import C_PolygonAnnotation
 from med_image_seg.Concrete.Storage.Volumes import (
-    C_ImageSourceFactory, C_MedicalVolumeReader,
+    C_ImageSourceFactory,
+    C_MedicalVolumeReader,
 )
 
 source = C_ImageSourceFactory().from_path("D:/images/pelvis.nii.gz")

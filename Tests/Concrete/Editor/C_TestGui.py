@@ -997,7 +997,7 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
         assert window.requireCentralWidget().isEnabled()
         window.close()
 
-    # 启动时载入已有影像，验证自动读取旁边的标注 JSON。
+    # 启动时载入已有影像，验证程序采用标注保存的网格而不是当前界面间距。
     def test_initial_image_automatically_loads_existing_json(
         self, tmp_path: I_FilePath
     ) -> None:
@@ -1036,7 +1036,9 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
             ),
         )
         project.save(source.getAnnotationPath())
-        window = C_Qt_AnnotationMainWindow(sources=[source], spacing_mm=1.0)
+        requested_volume = C_MedicalVolumeReader(0.8).read(source.getPath())
+        assert requested_volume.getData().shape != volume.getData().shape
+        window = C_Qt_AnnotationMainWindow(sources=[source], spacing_mm=0.8)
         window.show()
         deadline = time.monotonic() + 20.0
         while time.monotonic() < deadline:
@@ -1045,6 +1047,10 @@ class C_TestGui(T_TestGui[MonkeyPatch]):
                 break
             time.sleep(0.01)
         assert window.getProject() is not None
+        assert window.requireVolume().getData().shape == volume.getData().shape
+        assert window.requireVolume().getSpacingMm() == pytest.approx((1.0, 1.0, 1.0))
+        assert window.getSpacingSpin().value() == pytest.approx(1.0)
+        assert window.getInternalLoadError() is None
         assert (
             window.requireProject().annotation(3).getPolygon(0).getSource()
             == "prototype"

@@ -23,6 +23,10 @@ class T_VolumeLoadThread(T_HostedObject[T_Host], Generic[T_Host, T_Signal]):
     @abstractmethod
     def getSpacingMm(self) -> float: ...
 
+    # 返回加载时需要匹配的标注文件编号。
+    @abstractmethod
+    def getAnnotationIndex(self) -> int: ...
+
     # 在线程中读取影像，通过成功或失败信号把结果交回主线程。
     @abstractmethod
     def run(self) -> None: ...

@@ -290,9 +290,9 @@ class C_Qt_LoadingService(
         path = source.annotation_path_for_index(index)
         if path.is_file() or C_FilePath(f"{path}.bak").is_file():
             project = C_ProjectRepository().load(path)
-            project.validate_volume(volume)
             if project.getSourceFingerprint() != source.getFingerprint():
                 raise ValueError("annotation fingerprint does not match this image")
+            project.validate_volume(volume)
         else:
             project = C_ProjectFactory().create(
                 image_id=source.getSourceId(),

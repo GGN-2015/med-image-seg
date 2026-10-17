@@ -100,7 +100,7 @@ class T_TestGui(ABC, Generic[T_MonkeyPatch]):
         self, tmp_path: I_FilePath
     ) -> None: ...
 
-    # 启动时载入已有影像，验证自动读取旁边的标注 JSON。
+    # 启动时载入已有影像，验证程序采用标注保存的网格而不是当前界面间距。
     @abstractmethod
     def test_initial_image_automatically_loads_existing_json(
         self, tmp_path: I_FilePath

@@ -22,3 +22,7 @@ class T_MutableVolumeLoadThread(T_VolumeLoadThread[T_Host, T_Signal]):
     # 记录LPS 网格间距，单位为毫米。
     @abstractmethod
     def setSpacingMm(self, value: float) -> None: ...
+
+    # 记录加载时需要匹配的标注文件编号。
+    @abstractmethod
+    def setAnnotationIndex(self, value: int) -> None: ...

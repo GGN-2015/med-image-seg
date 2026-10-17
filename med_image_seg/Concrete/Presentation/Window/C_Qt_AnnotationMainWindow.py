@@ -1128,7 +1128,11 @@ class C_Qt_AnnotationMainWindow(
         self.setInternalLoadingSource(source)
         self.setInternalLoadError(None)
         self._show_loading(source)
-        self.setLoadThread(C_Qt_VolumeLoadThread(source, self.getSpacingSpin().value()))
+        self.setLoadThread(
+            C_Qt_VolumeLoadThread(
+                source, self.getSpacingSpin().value(), self.getAnnotationIndex()
+            )
+        )
         self.requireLoadThread().getLoaded().connect(self.volume_loaded)
         self.requireLoadThread().getFailed().connect(self.volume_load_failed)
         self.requireLoadThread().getHost().finished.connect(self.load_thread_finished)
@@ -1274,6 +1278,8 @@ class C_Qt_AnnotationMainWindow(
         self.setInternalMaskCoverageDirty(True)
         self.setInternalObservationMask(observation_mask)
         self.setObservationPosition(tuple(size // 2 for size in volume.getData().shape))
+        if np.allclose(volume.getSpacingMm(), (volume.getSpacingMm()[0],) * 3):
+            self.getSpacingSpin().setValue(volume.getSpacingMm()[0])
         self.setCurrentSlice(self.getObservationPosition()[2])
         self._sync_annotation_index_spin()
         self._show_annotation_path()

@@ -35,20 +35,39 @@ class C_Qt_VolumeLoadThread(
     def setSpacingMm(self, value: float) -> None:
         self._state_spacing_mm = value
 
+    # 返回加载时需要匹配的标注文件编号。
+    def getAnnotationIndex(self) -> int:
+        return self._state_annotation_index
+
+    # 记录加载时需要匹配的标注文件编号。
+    def setAnnotationIndex(self, value: int) -> None:
+        self._state_annotation_index = value
+
     loaded = Signal(object)
     failed = Signal(str)
 
     # 保存影像来源与标注间距，供后台线程执行加载。
-    def __init__(self, source: I_ImageSource, spacing_mm: float) -> None:
+    def __init__(
+        self, source: I_ImageSource, spacing_mm: float, annotation_index: int = 0
+    ) -> None:
         super().__init__()
         self.setSource(source)
         self.setSpacingMm(spacing_mm)
+        self.setAnnotationIndex(annotation_index)
 
     # 在线程中读取影像，通过成功或失败信号把结果交回主线程。
     def run(self) -> None:
+        from ...Algorithms.Validation.C_AnnotationGridResolver import (
+            C_AnnotationGridResolver,
+        )
         from ...Storage.Volumes.C_MedicalVolumeReader import C_MedicalVolumeReader
 
         try:
+            self.setSpacingMm(
+                C_AnnotationGridResolver().resolve(
+                    self.getSource(), self.getAnnotationIndex(), self.getSpacingMm()
+                )
+            )
             volume = C_MedicalVolumeReader(self.getSpacingMm()).read(
                 self.getSource().getPath()
             )
